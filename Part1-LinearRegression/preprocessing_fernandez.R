@@ -224,6 +224,9 @@ sum(df_cleaned$application_type < 0)     # Ensuring no negative values
 # 1 is 'joint' the loan application is made by two co-borrowers, and both incomes, credit profiles, and financial situations are considered.
 df_cleaned$application_type <- as.numeric(factor(df_cleaned$application_type))
 
+# remove application_type for now, due to highly unbalanced dataset
+df_cleaned <- subset(df_cleaned, select = -application_type)
+
 
 
 
@@ -252,6 +255,9 @@ sum(!is.na(df_cleaned$annual_inc))  # Looking for values
 sum(df_cleaned$annual_inc == 0)    # Checking if any amounts are zero
 sum(df_cleaned$annual_inc < 0)     # Ensuring no negative values
 
+# remove 'annual_inc_joint' for now, due to highly unbalanced dataset
+df_cleaned <- subset(df_cleaned, select = -annual_inc_joint)
+
 
 
 
@@ -269,13 +275,15 @@ df_cleaned$dti_joint <- as.numeric(df_cleaned$dti_joint)
 
 summary(df_cleaned$dti_joint)
 # Checking for missing, zero, or negative values in 'dti_joint'
+sum(df_cleaned$dti_joint == "NA")  # Looking for missing values
 sum(is.na(df_cleaned$dti_joint))  # Looking for missing values
 sum(!is.na(df_cleaned$dti_joint))  # Looking for values
 sum(df_cleaned$dti_joint == 0)    # Checking if any amounts are zero
 sum(df_cleaned$dti_joint < 0)     # Ensuring no negative values
 # dti_joint has a lot of missing values NA's (798180), if the application_type is joint, we have 458 values.
 
-
+# remove 'dti_joint' for now, due to highly unbalanced dataset
+df_cleaned <- subset(df_cleaned, select = -dti_joint)
 
 
 
@@ -284,17 +292,26 @@ sum(df_cleaned$dti_joint < 0)     # Ensuring no negative values
 summary(unique(df_cleaned$verification_status_joint))
 
 # transforming 'verification_status_joint' as numeric factors where:
-# 1 is 'NA' 
-# 2 is 'Not Verified' the loan application is made by two co-borrowers, and both incomes, credit profiles, and financial situations are considered.
-# 2 is 'Verified' 
-# 3 is 'Source Verified' 
+# 1 is 'Not Verified' the loan application is made by two co-borrowers, and both incomes, credit profiles, and financial situations are considered.
+# 2 is 'Source Verified'' 
+# 3 is 'Verified' 
+df_cleaned$verification_status_joint[is.na(df_cleaned$verification_status_joint)] <- "Not Verified"
+df_cleaned$verification_status_joint <- as.numeric(ordered(df_cleaned$verification_status_joint, levels = c("Not Verified", "Source Verified", "Verified")))
 
-df_cleaned$verification_status_joint <- as.numeric(factor(df_cleaned$verification_status_joint))
-sum(df_cleaned$verification_status_joint == 1)  
-sum(df_cleaned$verification_status_joint == 2) 
-sum(df_cleaned$verification_status_joint == 3)
+sum(df_cleaned$verification_status_joint == 1)    # Checking if any amounts are zero
+sum(df_cleaned$verification_status_joint == 2)    # Checking if any amounts are zero
+sum(df_cleaned$verification_status_joint == 3)    # Checking if any amounts are zero
+sum(is.na(df_cleaned$verification_status_joint))  
 
 # Conclusion: Fully verified income provides assurance to the lender that the borrowers can afford to repay the loan, leading to a lower interest rate. 
 # In contrast, unverified income increases uncertainty and risk, which may result in a higher interest rate.
-
 # we might want to merge 'verification_status_joint' and 'verification_status'
+
+df_cleaned$verification_status <- as.numeric(ordered(df_cleaned$verification_status, levels = c("Not Verified", "Source Verified", "Verified")))
+# 1 is 'Not Verified'
+# 3 is 'Verified'' 
+# 4 is 'Source Verified' 
+sum(df_cleaned$verification_status == 1)
+sum(df_cleaned$verification_status == 
+sum(df_cleaned$verification_status == 
+sum(is.na(df_cleaned$verification_status))
