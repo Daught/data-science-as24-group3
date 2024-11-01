@@ -11,70 +11,588 @@
 #####################################################
 
 
-##############   PRELIMINARIES   ##########################
-# Load the CSV file into R
-data <- read.csv("ressources/LCdata.csv", sep = ";")
+##############   1. Preliminaries   ##########################
+
+# Install / load packages
+
+if(!require('corrplot')) {              # Contains our data set
+  install.packages('corrplot')
+  library('corrplot')
+}
+if(!require('ggplot2')) {               # Contains our data set
+  install.packages('ggplot2')
+  library('ggplot2')
+}
+if(!require('tidyverse')) {             # Contains our data set
+  install.packages('tidyverse')
+  library('tidyverse')
+}
+if(!require('fastDummies')) {           # Contains our data set
+  install.packages('fastDummies')
+  library('fastDummies')
+}
+if(!require('GGally')) {                # Contains our data set
+  install.packages('GGally')
+  library('GGally')
+}
+if(!require('dplyr')) {                # Contains our data set
+  install.packages('dplyr')
+  library('dplyr')
+}
+
+# load data set
+#data <- read.csv2("ressources/LCdata.csv", header = TRUE, row.names=NULL, sep=";")
+dataset_file_path = "/home/selun/Dokumente/Sync/Master/03_Semester/DataScience/Assignment/data-science-as24-group3/Part1-LinearRegression/ressources/LCdata.csv"
+data <- read.csv2(dataset_file_path, header = TRUE, row.names=NULL, sep=";")
+
+LC <- data # make a copy of the original data set, so that we dont mess with it
+
+##########################   2. Data Exploration   ##########################
+
+#### Examine Data Set
+show_plots_flag <- FALSE
+
+head(LC)
+
+str(LC)
+  # 322 observations and 20 variables.
+  # Data types seem to correspond to scale levels.
+
+summary(LC)
+  # Missing values
+  #   - Salary: 59 NAs (18% of the data set)
+  #   - Complete otherwise
 
 
 ##############   Step 2 - Data Preprocessing   ##########################
-#### Define the columns to be removed
-columns_to_remove <- c("collection_recovery_fee", "installment", "funded_amnt", 
-                       "funded_amnt_inv", "issue_d", "last_pymnt_amnt", 
-                       "last_pymnt_d", "loan_status", "next_pymnt_d", 
-                       "out_prncp", "out_prncp_inv", "pymnt_plan", 
-                       "recoveries", "total_pymnt", "total_pymnt_inv", 
-                       "total_rec_int", "total_rec_late_fee", "total_rec_prncp")
 
-#### Manual removal
+# Feature Descriptions:
+# 1. id: This is a unique identifier for each loan listing. Although it's essential for tracking loans, it holds no predictive value 
+#    for analysis. We'll check for any anomalies (missing, zero, or negative values) and remove it as it's irrelevant for our analysis.
+
+# Dropping 'id' column since it's not useful for the decision-making process
+LC_Cleaned <- subset(LC, select = -id)
 
 
-# Remove the specified columns from the dataset
-data <- data[ , !(names(data) %in% columns_to_remove)]
+# 2. member_id: This represents the unique identifier for each borrower (member). It could potentially be useful in tracking multiple 
+#    loans for the same borrower, but in this dataset, there's no evidence of multiple loans per member. We'll remove it after verifying for any anomalies.
 
-# View first few rows of the dataset
-head(data)
-# Or view it as a table
-View(data)
-
-# View the structure of the dataset
-str(data) 
-# "name" is categorical (factor). 
-# "origin" is numerical, but should be categorical (see data dictionary).
-
-# Set threshold (e.g., remove columns with more than 50% NAs)
-threshold <- 0.1
-
-# Calculate the proportion of NAs in each column
-na_percentage <- colMeans(is.na(data))
-
-# Keep columns where the proportion of NAs is below the threshold
-data_clean <- data[, na_percentage < threshold]
-
-# Summary Statistics
-summary(data_clean) 
+# Since it’s not relevant, we'll remove 'member_id'
+LC_Cleaned <- subset(LC_Cleaned, select = -member_id)
 
 
-# Missing data
-sum(is.na(data_clean)) # no missing values
+# 3. loan_amnt: This column records the amount of money requested by the borrower. It's an essential feature for analysis and 
+#    should be non-negative, non-zero, and without missing values. We’ll explore its distribution and check for any irregularities.
 
-# Outliers
-
-# Loop through each column in the data frame
-for (colname in names(data_clean)) {
-  # Check if the column is numeric
-  if (is.numeric(data_clean[[colname]])) {
-    # Create a histogram for the numeric column
-    hist(data_clean[[colname]], 
-         main = paste("Histogram of", colname), 
-         xlab = colname, 
-         col = "lightblue", 
-         border = "black")
-  }
-}
+# DO NOTHING
 
 
-############# 1st iteration: Fit a model to all variables #############
+# 4. funded_amnt: This column shows the amount of money that has been funded for the loan at the current point. It's essential to analyze 
+#    the progress of loan funding. We will check for anomalies and compare it with the loan amount requested.\
+#    not available in the Test data!!!
+LC_Cleaned <- subset(LC_Cleaned, select = -funded_amnt)
 
-# For a start, we fit a regression model on ALL variables, to see what happens :-)
-# ~. --> .(all the others attributes in the data), ~ things are linear related to 
-lm.fit1 <- lm(mpg ~., data=data_clean)
+
+# 5. funded_amnt_inv: This represents the amount funded by investors for the loan. It's currently stored as a character but 
+#    should be converted to an integer for analysis. We’ll also explore how this compares to the total loan amount requested.
+#    not available in the Test data!!!
+
+LC_Cleaned <- subset(LC_Cleaned, select = -funded_amnt_inv)
+
+
+# 6. term: This column specifies the length of the loan in months (either 36 or 60 months). It is essentially a categorical variable, 
+#    so we’ll trim any unnecessary spaces and explore how the term affects loan amounts and funding.
+
+LC_Cleaned$term <- str_trim(LC_Cleaned$term)  # Trimming unnecessary spaces
+
+
+# 7. int_rate: The interest rate assigned to the loan. This is a key feature for analysis.
+#    It's originally stored as a character, but should be converted to a float (double).
+#    We'll also check for missing values and explore its distribution.
+
+# Convert 'int_rate' to a numeric format
+LC_Cleaned$int_rate <- as.double(LC_Cleaned$int_rate)
+
+
+# 8. installment: The monthly installment the borrower needs to pay.
+# Might have a direct correlation with interest rate and loan amount
+#     We'll convert it to double and remove the feature.
+#    not available in the Test data!!!
+LC_Cleaned <- subset(LC_Cleaned, select = -installment)
+
+
+# 9. emp_title: The borrower’s job title, provided during the application.
+#    This is a free-text field that is not useful for predictive analysis, so it will be dropped.
+#   * Employer Title replaces Employer Name for all loans listed after 9/23/2013
+# Drop 'emp_title' as it's not useful for analysis
+LC_Cleaned <- subset(LC_Cleaned, select = -emp_title)
+
+
+# 10. emp_length: The number of years the borrower has been employed.
+#    Convert this from string to integer and check for missing values.
+# Convert 'emp_length' to integer
+LC_Cleaned$emp_length <- as.integer(ordered(LC_Cleaned$emp_length, levels = c("< 1 year", "1 year", "2 years", "3 years", "4 years", "5 years", "6 years", "7 years", "8 years", "9 years", "10+ years"))) - 1
+# Drop 'emp_title' as it's not useful for analysis
+LC_Cleaned <- subset(LC_Cleaned, select = -emp_length)
+
+
+# 11. home_ownership: Indicates whether the borrower owns, rents, or has a mortgage on their home.
+#     Convert this to an ordered set of integers and create dummy columns for categorical analysis.
+#     We have 47 missing values.. to OTHER? Or shall we drop them? only
+# TODO-Firat: add NA's to Other
+
+# Convert 'home_ownership' to ordered integer
+LC_Cleaned$home_ownership <- as.integer(ordered(LC_Cleaned$home_ownership, levels = c("OTHER", "RENT", "MORTGAGE", "OWN")))
+
+sum(is.na(LC_Cleaned$home_ownership))  # Looking for missing values
+# Drop rows with missing values in 'home_ownership'
+filter(LC_Cleaned, is.na(LC_Cleaned$home_ownership))
+LC_Cleaned <- filter(LC_Cleaned, !is.na(LC_Cleaned$home_ownership))
+filter(LC_Cleaned, is.na(LC_Cleaned$home_ownership))
+
+# Create dummy columns for 'home_ownership'
+LC_Cleaned <- dummy_columns(LC_Cleaned, select_columns = "home_ownership", remove_selected_columns = TRUE)
+
+
+# 12. annual_inc: The annual income reported by the borrower during registration.
+#     Convert from string to integer, check for missing, zero, or extreme values, and handle any income outliers.
+
+# TODO-Firat: might be impactfull feature, might need some adjustments
+
+# Convert 'annual_inc' to integer
+# Firat check: LC_Cleaned <- filter(LC_Cleaned, !is.na(annual_inc))
+# Firat check: LC_Cleaned$annual_inc <- as.integer(LC_Cleaned$annual_inc)
+
+
+# 13. verification_status: Indicates whether the borrower’s income has been verified.
+#     Convert this to an integer and analyze its relationship to the interest rate.
+
+# TODO-FiratXsebastian: merge both cells joint_verification_status & verification_status
+# TODO: check whether high loan_amount are always verified
+
+# Convert 'verification_status' to integer
+LC_Cleaned$verification_status <- as.integer(factor(LC_Cleaned$verification_status)) - 1
+
+
+# 14. issue_d: The date when the loan was funded.
+#     Not part of Test data!!!
+# Drop 'issue_d' as it won't be relevant for future data
+LC_Cleaned <- subset(LC_Cleaned, select = -issue_d)
+
+
+# 15. loan_status: The current status of the loan (e.g., fully paid, defaulted). Not part of test data!!!!
+#     This is only applicable post-loan issuance, so it’s not useful for predicting interest rates. We'll drop it.
+# Drop 'loan_status' as it’s not relevant for the analysis
+LC_Cleaned <- subset(LC_Cleaned, select = -loan_status)
+
+
+# 16. pymnt_plan: Indicates if a payment plan is in place for the loan.
+#     This is not part of the test data!!, so it will be dropped.
+# Drop 'pymnt_plan' as it's irrelevant for the analysis
+LC_Cleaned <- subset(LC_Cleaned, select = -pymnt_plan)
+
+
+# 17. url: The URL for the loan listing on the LC platform.
+#     This feature has no analytical value, so it will be dropped.
+# Drop 'url' as it’s irrelevant for analysis
+LC_Cleaned <- subset(LC_Cleaned, select = -url)
+
+
+# 18. desc: A text field describing the loan provided by the borrower.
+#     This feature is difficult to analyze, so we will drop it.
+# Drop 'desc' as it is not suitable for analysis
+LC_Cleaned <- subset(LC_Cleaned, select = -desc)
+
+
+# 19. 'purpose': A category provided by the borrower for the loan request.
+mh_df$purpose <- tolower(mh_df$purpose) # Convert all characters in the column to lowercase
+mh_df$purpose <- factor(mh_df$purpose) # Change to unordered factor
+
+
+# 20. 'title': The loan title provided by the borrower.
+top_three_values <- names(sorted_value_counts)[1:3] # Identify the two most frequent values
+# Create a new column with grouped categories
+mh_df$grouped_title <- ifelse(mh_df$title %in% top_three_values,  mh_df$title, "Other")
+mh_df$grouped_title <- factor(mh_df$grouped_title) # Change to factor
+LC_Cleaned <- subset(LC_Cleaned, select = -title) # remove the original column
+
+
+# 21. 'zip_code': The first 3 numbers of the zip code provided by the borrower in the loan application.
+
+# TODO-MHA: gsub only the (first, second) number --> make categorical
+mh_df$zip_code <- gsub("xx", "", mh_df$zip_code) # Remove 'xx'
+
+# dropped zip_code as redundant information with the feature addr_state
+LC_Cleaned <- subset(LC_Cleaned, select = -zip_code)
+
+# 22. 'addr_state': The state provided by the borrower in the loan application.
+mh_df$addr_state <- factor(mh_df$addr_state) # Change to factor
+
+
+# 23. 'dti': A ratio calculated using the borrower’s total monthly debt payments on the total debt obligations, 
+# excluding mortgage and the requested LC loan, divided by the borrower’s self-reported monthly income.
+filtered_data <- mh_df$dti[mh_df$dti < 150]
+
+
+# 24. 'delinq_2yrs': The number of 30+ days past-due incidences of delinquency in the borrower's credit file for the past 2 years.
+# TODO: MHA: please check again regarding NA's (odd that it only has 25...)
+
+
+
+# 25. 'earliest_cr_line': The month the borrower's earliest reported credit line was opened.
+
+# Remove all blank spaces from the values in the column so that NAs are clearly seen
+mh_df$earliest_cr_line <- gsub(" ", "", mh_df$earliest_cr_line)
+# Replace any empty strings (values with no content) with NA
+mh_df$earliest_cr_line[mh_df$earliest_cr_line == ""] <- NA
+mh_df$earliest_cr_line <- factor(mh_df$earliest_cr_line) # Change to factor
+
+# TODO MHA: --> timestamping
+
+
+# 26. 'inq_last_6mths': The number of inquiries in past 6 months (excluding auto and mortgage inquiries)data.frame(..., row.names = NULL, check.rows = FALSE, check.names = TRUE, stringsAsFactors = default.stringsAsFactors())
+
+# 25 NA's
+
+
+# 27. mths_since_last_delinq ... The number of months since the borrower's last delinquency.
+
+# 408818 NA
+
+
+# 28. mths_since_last_record ... The number of months since the last public record.
+
+#  675190 NA
+
+
+
+# Replace NA's with 0, as no public record available
+df_cleaned$mths_since_last_record[is.na(df_cleaned$mths_since_last_record)] <- 0
+
+# 29. open_acc ... The number of open credit lines in the borrower's credit file.
+#  25 NA
+
+
+# 30. pub_rec ... Number of derogatory public records.
+#  25 NA
+
+
+# 31. revol_bal ... Total credit revolving balance.
+#  2 NA
+
+
+# 32. revol_util ... Revolving line utilization rate, or the amount of credit the borrower is using relative to all available revolving credit.
+
+#  454 NA
+
+# 33. total_acc ... The total number of credit lines currently in the borrower's credit file.
+
+#  25 NA 
+
+
+# 34. initial_list_status ... The initial listing status of the loan. Possible values are – W, F
+mh_df$initial_list_status <- factor(mh_df$initial_list_status)
+# TODO-MHA: Transform capital W to lower-w
+
+
+# 35. out_prncp ... Remaining outstanding principal for total amount funded.
+
+LC_Cleaned <- subset(LC_Cleaned, select = -out_prncp)
+
+# 36. out_prncp_inv ... Remaining outstanding principal for portion of total amount funded by investors.
+
+LC_Cleaned <- subset(LC_Cleaned, select = -out_prncp_inv)
+
+
+
+#Feature Descriptions:
+# 1. total_pymnt: Payments received to date for total amount funded.
+# The column has the type character and should be casted as a numerical value.
+# Not available in the Test data!!!
+
+# This column tracks the repayment behaviour of the borrower, it is likely not a factor
+# that would directly determine the interest rate at the time othe loan is issued. The interest rate is usually set at the beginning of the loan based on the
+# borrowers credit risk and financial history, not on how much the borrower has paid over time.
+
+# Conclusion:
+# The interest rate is generally determined based on risk factors before loan issuance, such as creditworthiness, income, loan amount, and loan term.
+# total_pymnt reflects payment history, which happens after the loan has been issued, so it wouldn’t be a factor used to set the original interest rate.
+
+# Not relevant removing 'total_pymnt'
+df_cleaned <- subset(df_cleaned, select = -total_pymnt)
+
+
+# 2. total_pymnt_inv: 
+# reflects post-load payment behaviour, whereas the interest rate is determined before any payments are made.
+# Not available in the Test data!!!
+df_cleaned <- subset(df_cleaned, select = -total_pymnt_inv)
+
+
+# 3. total_rec_prncp: Principal received to date
+# total_rec_prncp tracks the amount of principal repaid after the loan has been issued, whereas the interest rate is determined before any payments are made.
+# Not available in the Test data!!!
+df_cleaned <- subset(df_cleaned, select = -total_rec_prncp)
+
+
+#  4. total_rec_int: Interest received to date
+# total_rec_int reflects post-loan repayment behavior and simply tracks the interest that has been paid so far. 
+# Since the interest rate is already set when the loan is originated, total_rec_int is an outcome of the interest rate, not a factor influencing its determination.
+# Not available in the Test data!!!
+df_cleaned <- subset(df_cleaned, select = -total_rec_int)
+
+
+# 5. total_rec_late_fee: Late fees received to date
+# total_rec_late_fee tracks borrower behavior during the loan repayment process but does not provide information relevant to determining the interest rate at loan origination
+# Not available in the Test data!!!
+df_cleaned <- subset(df_cleaned, select = -total_rec_late_fee)
+
+
+# 6. recoveries: post charge off gross recovery
+# recoveries is a post-loan feature that captures the amount recovered after the loan has defaulted,
+# Not available in the Test data!!!
+df_cleaned <- subset(df_cleaned, select = -recoveries)
+
+
+#7. collection_recovery_fee: post charge off collection fee
+# collection_recovery_fee represents a post-loan event related to recovering funds from a borrower after they have defaulted or missed payments
+# Not available in the Test data!!!
+df_cleaned <- subset(df_cleaned, select = -collection_recovery_fee)
+
+
+# 8. last_pymnt_d: Last month payment was received
+# last_pymnt_d records the date of the most recent payment, which occurs after the loan has been issued 
+# Not available in the Test data!!!
+df_cleaned <- subset(df_cleaned, select = -last_pymnt_d)
+
+
+#9. last_pymnt_amnt: Last total payment amount received
+# last_pymnt_amnt reflects post-loan payment behavior and tracks the most recent payment made by the borrower.
+# Not available in the Test data!!!
+df_cleaned <- subset(df_cleaned, select = -last_pymnt_amnt)
+
+
+# 10. next_pymnt_d: Next scheduled payment date
+# next_pymnt_d is not eseential as it is a post-loan feature that indicates the next scheduled payment date, which occurs after the loan has been issued.
+# Not available in the Test data!!!
+df_cleaned <- subset(df_cleaned, select = -next_pymnt_d)
+
+
+# 11. Last_credit_pull_d: The most recent month LC pulled credit for this loan
+# tracks when the lender last accessed the borrower’s credit information, which happens after the loan is issued. 
+df_cleaned <- subset(df_cleaned, select = -last_credit_pull_d)
+
+
+# 12. collections_12_mths_ex_med: Number of collections in 12 months excluding medical collections
+# collections_12_mths_ex_med reflects the borrower’s history of debt mismanagement over the past 12 months (excluding medical-related collections), 
+# which is a significant indicator of credit risk. Lenders use this information to assess the borrower’s likelihood of default and adjust the interest rate accordingly.
+
+# Remove values greater than 12
+df_cleaned <- df_cleaned[df_cleaned$collections_12_mths_ex_med <= 12, ]
+# 126 NA's might need to be imputed.
+
+# TODO-SFE: DROP NA's
+# Consclusion:
+# collections_12_mths_ex_med is an important feature for predicting int_rate, as it directly impacts the lender’s risk assessment during the loan origination process.
+
+
+# 13. mths_since_last_major_derog: Months since most recent 90-day or worse rating
+# mths_since_last_major_derog refers to the number of months since the borrower's last major derogatory mark on their credit file.
+# This feature is highly relevant, as it directly reflects the borrower's credit history. It indicates how recently the borrower experienced a significant credit problem.
+
+# mths_since_last_major_derog has a lot of missing values NA's (599106), if the borrower has no major deroagatory event the value is NA.
+
+# Conclusion: A borrower with a recent major derogatory event is seen as a higher risk and will likely face a higher interest rate. On the other hand,
+# borrowers with no recent derogatory marks are seen as less risky, potentially resulting in a lower interest rate.
+
+# set all NA to the highest possible value: 0
+df_cleaned$mths_since_last_major_derog[is.na(df_cleaned$mths_since_last_major_derog)] <- 0
+
+
+
+
+# 14. policy_code: publicly available policy_code=1, new products not publicly available policy_code=2
+# policy_code might have a moderate influence on int_rate, particularly if different policies or products have different interest rate models
+
+# 126 NA's might need to be imputed.
+# Conclusion:
+# the policy code has it's min and max at 1, the 126 data-point which have NA might be relevant. --> to be discussed
+# TODO-SFE: removing NA's
+
+
+
+
+# 15. application_type: Indicates whether the loan is an individual application or a joint application with two co-borrowers
+# application_type differentiates between individual and joint applications. 
+# Joint applications tend to reduce risk by incorporating the financial profiles and incomes of two borrowers, which may result in a lower interest rate.
+
+# 126 NA's might need to be imputed.
+
+# Conclusion:
+# Individual applications are considered higher risk due to reliance on a single borrower’s financial situation.
+
+# transforming 'application_type' as numeric factors where:
+# 0 is 'individual' a single borrower applies for the loan.
+# 1 is 'joint' the loan application is made by two co-borrowers, and both incomes, credit profiles, and financial situations are considered.
+df_cleaned$application_type <- as.numeric(factor(df_cleaned$application_type))
+
+# remove application_type for now, due to highly unbalanced dataset
+df_cleaned <- subset(df_cleaned, select = -application_type)
+
+
+# TODO: application_type = joint --> annual_inc_joint
+# application_type = individual --> annual_inc
+# --> New Feature: anual_inc_merged, do not delete application_type
+
+# TODO-SFE: merge, remove current, check for NA's
+
+# 16. annual_inc_joint: The combined self-reported annual income provided by the co-borrowers during registration
+# annual_inc_joint reflects the combined financial capacity of two borrowers in a joint loan application, 
+# and higher combined income typically reduces the lender’s risk, leading to a lower interest rate.
+
+# TODO-SFE: merge, remove current, check for NA's
+
+# Conclusion:
+# cast 'annual_inc_joint' as numeric
+# we might need to merge 'annual_inc' and 'annual_inc_joint'
+df_cleaned$annual_inc_joint <- as.numeric(df_cleaned$annual_inc_joint)
+
+
+# 17. dti_joint: A ratio calculated using the co-borrowers' total monthly payments on the total debt obligations, excluding mortgages and the requested LC loan, divided by the co-borrowers' combined self-reported monthly income
+# dti_joint refers to the debt-to-income (DTI) ratio for joint loan applications. 
+# It is calculated as the total monthly debt obligations of both co-borrowers (excluding mortgage payments) divided by their combined monthly income. 
+# This ratio provides a picture of how much of the co-borrowers' income is committed to repaying debt, helping lenders assess their ability to take on additional loans.
+ 
+# TODO-SFE: merge, remove current, check for NA's
+
+# Conclusion:
+# cast 'dti_joint' as numeric
+# A higher DTI ratio signifies higher risk to the lender, resulting in a higher interest rate. 
+# Conversely, a lower DTI ratio implies a greater ability to handle new debt, leading to a lower interest rate.
+df_cleaned$dti_joint <- as.numeric(df_cleaned$dti_joint)
+
+
+# 18. verification_status_joint: Indicates if the co-borrowers' joint income was verified by LC, not verified, or if the income source was verified
+
+# TODO-SFE: merge, remove current, check for NA's
+
+# transforming 'verification_status_joint' as numeric factors where:
+# 1 is 'Not Verified' the loan application is made by two co-borrowers, and both incomes, credit profiles, and financial situations are considered.
+# 2 is 'Source Verified'' 
+# 3 is 'Verified' 
+df_cleaned$verification_status_joint[is.na(df_cleaned$verification_status_joint)] <- "Not Verified"
+df_cleaned$verification_status_joint <- as.numeric(ordered(df_cleaned$verification_status_joint, levels = c("Not Verified", "Source Verified", "Verified")))
+
+# Conclusion: Fully verified income provides assurance to the lender that the borrowers can afford to repay the loan, leading to a lower interest rate. 
+# In contrast, unverified income increases uncertainty and risk, which may result in a higher interest rate.
+# we might want to merge 'verification_status_joint' and 'verification_status'
+
+df_cleaned$verification_status <- as.numeric(ordered(df_cleaned$verification_status, levels = c("Not Verified", "Source Verified", "Verified")))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#columns_to_inspect <- c("total_pymnt", "total_pymnt_inv", "total_rec_prncp", "total_rec_int", "total_rec_late_fee", "recoveries",
+#                        "collection_recovery_fee", "last_pymnt_d", "last_pymnt_amnt", "next_pymnt_d", "last_credit_pull_d", "collections_12_mths_ex_med",
+#                        "mths_since_last_major_derog", "policy_code", "application_type", "annual_inc_joint", "dti_joint", 
+#                        "verification_status_joint", "int_rate")
+#
+#categorical_columns <- c("collections_12_mths_ex_med", "policy_code", "application_type", "last_pymnt_d", 
+#                        "collections_12_mths_ex_med", "mths_since_last_major_derog",
+#                        "annual_inc_joint", "verification_status_joint", "dti_joint", "last_credit_pull_d",
+#                        "next_pymnt_d")
+#
+#columns_remove_na <- c("Mths_since_last_major_derog", "Annual_inc_joint", "Dti_joint")
+#
+#columns_after_investigation <- c("total_pymnt", "total_pymnt_inv", "total_rec_prncp", "total_rec_int", "total_rec_late_fee", "recoveries",
+#                                 "collection_recovery_fee", "last_pymnt_amnt", "int_rate")
+#
+#data_to_inspect <- data[, columns_to_inspect]
+#non_categorical_data <- data_to_inspect %>% select(-one_of(categorical_columns))
+#data_to_inspect <- data[, columns_after_investigation]
+#data_after_investigation <- non_categorical_data %>% select(-one_of())
+#str(data_to_inspect)
+#summary(data_to_inspect)
+#
+#
+## Outliers
+## Assuming your filtered dataset is in new_data
+## Loop through each column to create a boxplot for each numeric column
+#
+## Set the plot layout to show multiple boxplots
+#par(mfrow = c(1, 1))  # Adjust the layout as necessary (3x3 grid in this case)
+#
+## Loop through each column and create a boxplot
+#for(column_name in colnames(data_to_inspect)) {
+#  # Check if the column is numeric
+#  if(is.numeric(data_to_inspect[[column_name]])) {
+#    boxplot(data_to_inspect[[column_name]], main=column_name, outline=TRUE, 
+#            col="lightblue", border="black")
+#  }
+#}
+#
+## Loop through each column in the data frame
+#for (colname in names(data_to_inspect)) {
+#  # Check if the column is numeric
+#  if (is.numeric(data_to_inspect[[colname]])) {
+#    # Create a histogram for the numeric column
+#    hist(data_to_inspect[[colname]], 
+#         main = paste("Histogram of", colname), 
+#         xlab = colname, 
+#         col = "lightblue", 
+#         border = "black")
+#  }
+#}
+#
+#
+#data_to_inspect_without_chr <- data_to_inspect %>% select_if(~ !is.character(.))
+#plot(data_to_inspect_without_chr[,c(1,2)])
+#
+#library(corrplot)
+##summary(non_categorical_data)
+##cor(non_categorical_data[,-c(3,4)]) # We remove the categorical variables before applying cor(). cor() needs library corrplot. 
+##corrplot(cor(non_categorical_data[,-c(3,4)]), order = "hclust", tl.col = "black", tl.srt = 45)
+#
+## Correlation Plot
+##plot(non_categorical_data)
+#
+## Scatterplot matrix
+#corrplot(cor(data_to_inspect[,-c(3,4)]), order = "hclust", tl.col = "black", tl.srt = 45)
+#plot(data_to_inspect) # scatterplot matrix
+#cor(data_to_inspect[,-c(1,2)])
+#
+############## 1st iteration: Fit a model to all variables #############
+#
+## For a start, we fit a regression model on ALL variables, to see what happens :-)
+## ~. --> .(all the others attributes in the data), ~ things are linear related to 
+#lm.fit1 <- lm(inc_rate ~., data=data_to_inspect)
