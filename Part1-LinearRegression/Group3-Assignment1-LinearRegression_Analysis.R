@@ -42,7 +42,7 @@ if(!require('dplyr')) {                # Contains our data set
 
 # load data set
 #data <- read.csv2("ressources/LCdata.csv", header = TRUE, row.names=NULL, sep=";")
-dataset_file_path = "/home/selun/Dokumente/Sync/Master/03_Semester/DataScience/Assignment/data-science-as24-group3/Part1-LinearRegression/ressources/LCdata.csv"
+dataset_file_path = "./ressources/LCdata.csv"
 data <- read.csv2(dataset_file_path, header = TRUE, row.names=NULL, sep=";")
 
 LC <- data # make a copy of the original data set, so that we dont mess with it
@@ -423,22 +423,22 @@ LC_Cleaned <- subset(LC_Cleaned, select = -desc)
 # 19. 'purpose': A category provided by the borrower for the loan request.
 if(show_plots_flag){
   # Investigate $purpose, (character)
-  unique(mh_df$purpose) # "other", "debt_consolidation", "moving", "credit_card", "home_improvement", "major_purchase", "wedding", "small_business", "medical", "car", "educational", "vacation", "house", "renewable_energy"
+  unique(LC_Cleaned$purpose) # "other", "debt_consolidation", "moving", "credit_card", "home_improvement", "major_purchase", "wedding", "small_business", "medical", "car", "educational", "vacation", "house", "renewable_energy"
 }
 
-mh_df$purpose <- tolower(mh_df$purpose) # Convert all characters in the column to lowercase
-mh_df$purpose <- factor(mh_df$purpose) # Change to unordered factor
+LC_Cleaned$purpose <- tolower(LC_Cleaned$purpose) # Convert all characters in the column to lowercase
+LC_Cleaned$purpose <- factor(LC_Cleaned$purpose) # Change to unordered factor
 if(show_plots_flag){
-  length(unique(mh_df$purpose)) # 14 unique values
-  sum(is.na(mh_df$purpose)) # no missing values
+  length(unique(LC_Cleaned$purpose)) # 14 unique values
+  sum(is.na(LC_Cleaned$purpose)) # no missing values
 }
 
 # 20. 'title': The loan title provided by the borrower.
 
 top_three_values <- names(sorted_value_counts)[1:3] # Identify the two most frequent values
 # Create a new column with grouped categories
-mh_df$grouped_title <- ifelse(mh_df$title %in% top_three_values,  mh_df$title, "Other")
-mh_df$grouped_title <- factor(mh_df$grouped_title) # Change to factor
+LC_Cleaned$grouped_title <- ifelse(LC_Cleaned$title %in% top_three_values,  LC_Cleaned$title, "Other")
+LC_Cleaned$grouped_title <- factor(LC_Cleaned$grouped_title) # Change to factor
 LC_Cleaned <- subset(LC_Cleaned, select = -title) # remove the original column
 
 # 21. 'zip_code': The first 3 numbers of the zip code provided by the borrower in the loan application.
@@ -446,35 +446,35 @@ LC_Cleaned <- subset(LC_Cleaned, select = -title) # remove the original column
 # TODO-MHA: gsub only the (first, second) number --> make categorical
 
 if(show_plots_flag){
-  unique(mh_df$zip_code) # e.g.: "806xx" "100xx" "665xx" "068xx" "300xx"
+  unique(LC_Cleaned$zip_code) # e.g.: "806xx" "100xx" "665xx" "068xx" "300xx"
 }
 
-mh_df$zip_code <- gsub("xx", "", mh_df$zip_code) # Remove 'xx'
+LC_Cleaned$zip_code <- gsub("xx", "", LC_Cleaned$zip_code) # Remove 'xx'
 
 
 if(show_plots_flag){
   length(unique(data$zip_code)) # inital 931 unique values
-  length(unique(mh_df$zip_code)) # no change to original
-  sum(is.na(mh_df$zip_code)) # no missing values
-  summary(mh_df$zip_code)
-  table(mh_df$zip_code)
+  length(unique(LC_Cleaned$zip_code)) # no change to original
+  sum(is.na(LC_Cleaned$zip_code)) # no missing values
+  summary(LC_Cleaned$zip_code)
+  table(LC_Cleaned$zip_code)
   # Count and sort the values
-  counts <- table(mh_df$zip_code)
+  counts <- table(LC_Cleaned$zip_code)
   sorted_value_counts <- sort(counts, decreasing = TRUE)
   print(sorted_value_counts)
-  sort(mh_df$zip_code)
+  sort(LC_Cleaned$zip_code)
 
   # Change to factor
-  mh_df$zip_code <- factor(mh_df$zip_code)
-  summary(mh_df$zip_code)
-  str(mh_df$zip_code)
-  summary(mh_df$zip_code)
+  LC_Cleaned$zip_code <- factor(LC_Cleaned$zip_code)
+  summary(LC_Cleaned$zip_code)
+  str(LC_Cleaned$zip_code)
+  summary(LC_Cleaned$zip_code)
 
   # Barplot for zip_code
-  counts <- table(mh_df$zip_code)
+  counts <- table(LC_Cleaned$zip_code)
   barplot(counts,main = "Distribution of Character Column",xlab = "Categories",ylab = "Count",col = "lightblue",border = "black",las = 2,cex.names = 0.7)
   # Plot target to zip_code
-  boxplot(int_rate ~ zip_code, data = mh_df,main = "Box Plot of Interest Rate by Purpose",xlab = "Investigated Column",ylab = "Interest Rate",col = "lightblue",border = "black",las = 2,cex.axis = 0.7)
+  boxplot(int_rate ~ zip_code, data = LC_Cleaned,main = "Box Plot of Interest Rate by Purpose",xlab = "Investigated Column",ylab = "Interest Rate",col = "lightblue",border = "black",las = 2,cex.axis = 0.7)
 }
 
 # dropped zip_code as redundant information with the feature addr_state
@@ -482,13 +482,13 @@ LC_Cleaned <- subset(LC_Cleaned, select = -zip_code)
 
 # 22. 'addr_state': The state provided by the borrower in the loan application.
 
-mh_df$addr_state <- factor(mh_df$addr_state) # Change to factor
+LC_Cleaned$addr_state <- factor(LC_Cleaned$addr_state) # Change to factor
 
 # 23. 'dti': A ratio calculated using the borrower’s total monthly debt payments on the total debt obligations, 
 # excluding mortgage and the requested LC loan, divided by the borrower’s self-reported monthly income.
 
 # Histogramm without very high values, Filter out the rows where column_num is 9999
-filtered_data <- mh_df$dti[mh_df$dti < 150]
+filtered_data <- LC_Cleaned$dti[LC_Cleaned$dti < 150]
 
 if(show_plots_flag){
   # Create the histogram with the filtered data
@@ -499,7 +499,7 @@ if(show_plots_flag){
      col = "lightblue",
      border = "black")
 
-  boxplot(mh_df$dti)
+  boxplot(LC_Cleaned$dti)
   boxplot(filtered_data)
 }
 
@@ -509,17 +509,17 @@ if(show_plots_flag){
 # TODO: MHA: please check again regarding NA's (odd that it only has 25...)
 if(show_plots_flag){
   # Investigate $delinq_2yrs (integer)
-  summary(mh_df$delinq_2yrs)
-  unique(mh_df$delinq_2yrs)
-  sum(is.na(mh_df$delinq_2yrs)) # 25 NAs
+  summary(LC_Cleaned$delinq_2yrs)
+  unique(LC_Cleaned$delinq_2yrs)
+  sum(is.na(LC_Cleaned$delinq_2yrs)) # 25 NAs
 
   # Plots and Histogramms
-  hist(mh_df$delinq_2yrs)
-  boxplot(mh_df$delinq_2yrs)
+  hist(LC_Cleaned$delinq_2yrs)
+  boxplot(LC_Cleaned$delinq_2yrs)
 
   # Plot target to delinq_2yrs
   boxplot(int_rate ~ delinq_2yrs, 
-          data = mh_df,
+          data = LC_Cleaned,
           main = "Box Plot of Interest Rate by Purpose",
           xlab = "Investigated Column",
           ylab = "Interest Rate",
@@ -529,7 +529,7 @@ if(show_plots_flag){
           cex.axis = 0.7) # Adjust label size if needed
 
   # Find the row indices where NAs are
-  column_to_search <- mh_df$delinq_2yrs
+  column_to_search <- LC_Cleaned$delinq_2yrs
   NA_indices <- which(is.na(column_to_search))
   # Display the rows with NAs
   data_with_NAvalue <- data[NA_indices, ]
@@ -540,21 +540,21 @@ if(show_plots_flag){
 # 25. 'earliest_cr_line': The month the borrower's earliest reported credit line was opened.
 
 # Remove all blank spaces from the values in the column so that NAs are clearly seen
-mh_df$earliest_cr_line <- gsub(" ", "", mh_df$earliest_cr_line)
+LC_Cleaned$earliest_cr_line <- gsub(" ", "", LC_Cleaned$earliest_cr_line)
 # Replace any empty strings (values with no content) with NA
-mh_df$earliest_cr_line[mh_df$earliest_cr_line == ""] <- NA
-mh_df$earliest_cr_line <- factor(mh_df$earliest_cr_line) # Change to factor
+LC_Cleaned$earliest_cr_line[LC_Cleaned$earliest_cr_line == ""] <- NA
+LC_Cleaned$earliest_cr_line <- factor(LC_Cleaned$earliest_cr_line) # Change to factor
 
 # TODO MHA: --> timestamping
 
 if(show_plots_flag){
   # Make sure it worked
-  summary(mh_df$earliest_cr_line)
-  str(mh_df$earliest_cr_line)
+  summary(LC_Cleaned$earliest_cr_line)
+  str(LC_Cleaned$earliest_cr_line)
 
   # Plot target to earliest_cr_line
   boxplot(int_rate ~ earliest_cr_line, 
-          data = mh_df,
+          data = LC_Cleaned,
           main = "Box Plot of Interest Rate by Purpose",
           xlab = "Investigated Column",
           ylab = "Interest Rate",
@@ -564,7 +564,7 @@ if(show_plots_flag){
           cex.axis = 0.7) # Adjust label size if needed
 
   # Find the row indices where NAs are
-  column_to_search <- mh_df$earliest_cr_line
+  column_to_search <- LC_Cleaned$earliest_cr_line
   NA_indices <- which(is.na(column_to_search))
   # Display the rows with NAs
   data_with_NAvalue <- data[NA_indices, ]
@@ -575,18 +575,18 @@ if(show_plots_flag){
 # 26. 'inq_last_6mths': The number of inquiries in past 6 months (excluding auto and mortgage inquiries)data.frame(..., row.names = NULL, check.rows = FALSE, check.names = TRUE, stringsAsFactors = default.stringsAsFactors())
 
 if(show_plots_flag){
-  summary(mh_df$inq_last_6mths) #    Min. 1st Qu.  Median    Mean 3rd Qu.    Max.    NA's 
+  summary(LC_Cleaned$inq_last_6mths) #    Min. 1st Qu.  Median    Mean 3rd Qu.    Max.    NA's 
   #                                 0.0000  0.0000  0.0000  0.6947  1.0000 33.0000      25 
-  unique(mh_df$inq_last_6mths) # e.g.: NA  0  1  4  2  3  5 
-  sum(is.na(mh_df$inq_last_6mths)) #  25 NA
+  unique(LC_Cleaned$inq_last_6mths) # e.g.: NA  0  1  4  2  3  5 
+  sum(is.na(LC_Cleaned$inq_last_6mths)) #  25 NA
 
   # Plots and Histogramms
-  hist(mh_df$inq_last_6mths)
-  boxplot(mh_df$inq_last_6mths)
+  hist(LC_Cleaned$inq_last_6mths)
+  boxplot(LC_Cleaned$inq_last_6mths)
 
   # Plot target to inq_last_6mths
   boxplot(int_rate ~ inq_last_6mths, 
-          data = mh_df,
+          data = LC_Cleaned,
           main = "Box Plot of Interest Rate by Purpose",
           xlab = "Investigated Column",
           ylab = "Interest Rate",
@@ -596,7 +596,7 @@ if(show_plots_flag){
           cex.axis = 0.7) # Adjust label size if needed
 
   # Find the row indices where NAs are
-  column_to_search <- mh_df$inq_last_6mths
+  column_to_search <- LC_Cleaned$inq_last_6mths
   NA_indices <- which(is.na(column_to_search))
   # Display the rows with NAs
   data_with_NAvalue <- data[NA_indices, ]
@@ -607,17 +607,17 @@ if(show_plots_flag){
 # 27. mths_since_last_delinq ... The number of months since the borrower's last delinquency.
 
 if(show_plots_flag){
-    summary(mh_df$mths_since_last_delinq)
-  unique(mh_df$mths_since_last_delinq) # e.g.: NA   0  66  62  28  37  78   8  23  44 
-  sum(is.na(mh_df$mths_since_last_delinq)) #  408818 NA
+    summary(LC_Cleaned$mths_since_last_delinq)
+  unique(LC_Cleaned$mths_since_last_delinq) # e.g.: NA   0  66  62  28  37  78   8  23  44 
+  sum(is.na(LC_Cleaned$mths_since_last_delinq)) #  408818 NA
 
   # Plots and Histogramms
-  hist(mh_df$mths_since_last_delinq)
-  boxplot(mh_df$mths_since_last_delinq)
+  hist(LC_Cleaned$mths_since_last_delinq)
+  boxplot(LC_Cleaned$mths_since_last_delinq)
 
 # Plot target to mths_since_last_delinq
 boxplot(int_rate ~ mths_since_last_delinq, 
-        data = mh_df,
+        data = LC_Cleaned,
         main = "Box Plot of Interest Rate by Purpose",
         xlab = "Investigated Column",
         ylab = "Interest Rate",
@@ -631,17 +631,17 @@ boxplot(int_rate ~ mths_since_last_delinq,
 # 28. mths_since_last_record ... The number of months since the last public record.
 
 if(show_plots_flag){
-  summary(mh_df$mths_since_last_record)
-  unique(mh_df$mths_since_last_record) # e.g.: NA   0  95 111  57  76 102 115  54 106  86  19  61   
-  sum(is.na(mh_df$mths_since_last_record)) #  675190 NA
+  summary(LC_Cleaned$mths_since_last_record)
+  unique(LC_Cleaned$mths_since_last_record) # e.g.: NA   0  95 111  57  76 102 115  54 106  86  19  61   
+  sum(is.na(LC_Cleaned$mths_since_last_record)) #  675190 NA
 
   # Plots and Histogramms
-  hist(mh_df$mths_since_last_record)
-  boxplot(mh_df$mths_since_last_record)
+  hist(LC_Cleaned$mths_since_last_record)
+  boxplot(LC_Cleaned$mths_since_last_record)
 
   # Plot target to mths_since_last_record
   boxplot(int_rate ~ mths_since_last_record, 
-          data = mh_df,
+          data = LC_Cleaned,
           main = "Box Plot of Interest Rate by Purpose",
           xlab = "Investigated Column",
           ylab = "Interest Rate",
@@ -651,7 +651,7 @@ if(show_plots_flag){
           cex.axis = 0.7) # Adjust label size if needed
 
   # Find the row indices not NAs
-  column_to_search <- mh_df$mths_since_last_record
+  column_to_search <- LC_Cleaned$mths_since_last_record
   NA_indices <- which(!is.na(column_to_search))
   # Display the rows with not NAs
   data_with_NAvalue <- data[NA_indices, ]
@@ -659,24 +659,24 @@ if(show_plots_flag){
 }
 
 # Replace NA's with 0, as no public record available
-df_cleaned$mths_since_last_record[is.na(df_cleaned$mths_since_last_record)] <- 0
+LC_Cleaned$mths_since_last_record[is.na(LC_Cleaned$mths_since_last_record)] <- 0
 
 # 29. open_acc ... The number of open credit lines in the borrower's credit file.
 
 
 if(show_plots_flag){
   # Investigate $open_acc (int)
-  summary(mh_df$open_acc)
-  unique(mh_df$open_acc) # e.g.: NA  7  9  8  5 12  4 17 10 13 11   
-  sum(is.na(mh_df$open_acc)) #  25 NA
+  summary(LC_Cleaned$open_acc)
+  unique(LC_Cleaned$open_acc) # e.g.: NA  7  9  8  5 12  4 17 10 13 11   
+  sum(is.na(LC_Cleaned$open_acc)) #  25 NA
 
   # Plots and Histogramms
-  hist(mh_df$open_acc)
-  boxplot(mh_df$open_acc)
+  hist(LC_Cleaned$open_acc)
+  boxplot(LC_Cleaned$open_acc)
 
   # Plot target to open_acc
   boxplot(int_rate ~ open_acc, 
-          data = mh_df,
+          data = LC_Cleaned,
           main = "Box Plot of Interest Rate by Purpose",
           xlab = "Investigated Column",
           ylab = "Interest Rate",
@@ -686,7 +686,7 @@ if(show_plots_flag){
           cex.axis = 0.7) # Adjust label size if needed
 
   # Find the row indices NAs
-  column_to_search <- mh_df$open_acc
+  column_to_search <- LC_Cleaned$open_acc
   NA_indices <- which(is.na(column_to_search))
   # Display the rows with NAs
   data_with_NAvalue <- data[NA_indices, ]
@@ -698,17 +698,17 @@ if(show_plots_flag){
 
 # 30. pub_rec ... Number of derogatory public records.
 if(show_plots_flag){
-  summary(mh_df$pub_rec)
-  unique(mh_df$pub_rec) # e.g.: NA  0  1  2  3  5  9    
-  sum(is.na(mh_df$pub_rec)) #  25 NA
+  summary(LC_Cleaned$pub_rec)
+  unique(LC_Cleaned$pub_rec) # e.g.: NA  0  1  2  3  5  9    
+  sum(is.na(LC_Cleaned$pub_rec)) #  25 NA
 
   # Plots and Histogramms
-  hist(mh_df$pub_rec)
-  boxplot(mh_df$pub_rec)
+  hist(LC_Cleaned$pub_rec)
+  boxplot(LC_Cleaned$pub_rec)
 
   # Plot target to pub_rec
   boxplot(int_rate ~ pub_rec, 
-          data = mh_df,
+          data = LC_Cleaned,
           main = "Box Plot of Interest Rate by Purpose",
           xlab = "Investigated Column",
           ylab = "Interest Rate",
@@ -718,7 +718,7 @@ if(show_plots_flag){
           cex.axis = 0.7) # Adjust label size if needed
 
   # Find the row indices NAs
-  column_to_search <- mh_df$pub_rec
+  column_to_search <- LC_Cleaned$pub_rec
   NA_indices <- which(is.na(column_to_search))
   # Display the rows with NAs
   data_with_NAvalue <- data[NA_indices, ]
@@ -730,17 +730,17 @@ if(show_plots_flag){
 # 31. revol_bal ... Total credit revolving balance.
 
 if(show_plots_flag){
-  summary(mh_df$revol_bal)
-  unique(mh_df$revol_bal) # e.g.: 0 150786  11608   9204   5046   6360  16842   4429 (>70445)    
-  sum(is.na(mh_df$revol_bal)) #  2 NA
+  summary(LC_Cleaned$revol_bal)
+  unique(LC_Cleaned$revol_bal) # e.g.: 0 150786  11608   9204   5046   6360  16842   4429 (>70445)    
+  sum(is.na(LC_Cleaned$revol_bal)) #  2 NA
 
   # Plots and Histogramms
-  hist(mh_df$revol_bal)
-  boxplot(mh_df$revol_bal)
+  hist(LC_Cleaned$revol_bal)
+  boxplot(LC_Cleaned$revol_bal)
 
   # Plot target to revol_bal
   boxplot(int_rate ~ revol_bal, 
-          data = mh_df,
+          data = LC_Cleaned,
           main = "Box Plot of Interest Rate by Purpose",
           xlab = "Investigated Column",
           ylab = "Interest Rate",
@@ -750,7 +750,7 @@ if(show_plots_flag){
           cex.axis = 0.7) # Adjust label size if needed
 
   # Find the row indices NAs
-  column_to_search <- mh_df$revol_bal
+  column_to_search <- LC_Cleaned$revol_bal
   NA_indices <- which(is.na(column_to_search))
   # Display the rows with NAs
   data_with_NAvalue <- data[NA_indices, ]
@@ -760,17 +760,17 @@ if(show_plots_flag){
 # 32. revol_util ... Revolving line utilization rate, or the amount of credit the borrower is using relative to all available revolving credit.
 
 if(show_plots_flag){
-  summary(mh_df$revol_util)
-  unique(mh_df$revol_util) # e.g.: NA   2.20  56.90  29.30  19.90  25.00    
-  sum(is.na(mh_df$revol_util)) #  454 NA
+  summary(LC_Cleaned$revol_util)
+  unique(LC_Cleaned$revol_util) # e.g.: NA   2.20  56.90  29.30  19.90  25.00    
+  sum(is.na(LC_Cleaned$revol_util)) #  454 NA
 
   # Plots and Histogramms
-  hist(mh_df$revol_util)
-  boxplot(mh_df$revol_util)
+  hist(LC_Cleaned$revol_util)
+  boxplot(LC_Cleaned$revol_util)
 
   # Plot target to revol_util
   boxplot(int_rate ~ revol_util, 
-          data = mh_df,
+          data = LC_Cleaned,
           main = "Box Plot of Interest Rate by Purpose",
           xlab = "Investigated Column",
           ylab = "Interest Rate",
@@ -780,7 +780,7 @@ if(show_plots_flag){
           cex.axis = 0.7) # Adjust label size if needed
 
   # Find the row indices NAs
-  column_to_search <- mh_df$revol_util
+  column_to_search <- LC_Cleaned$revol_util
   NA_indices <- which(is.na(column_to_search))
   # Display the rows with NAs
   data_with_NAvalue <- data[NA_indices, ]
@@ -791,17 +791,17 @@ if(show_plots_flag){
 
 if(show_plots_flag){
   # Investigate $total_acc (int)
-  summary(mh_df$total_acc)
-  unique(mh_df$total_acc) # e.g.: NA  16  19  43  28  20  35  33  26     
-  sum(is.na(mh_df$total_acc)) #  25 NA
+  summary(LC_Cleaned$total_acc)
+  unique(LC_Cleaned$total_acc) # e.g.: NA  16  19  43  28  20  35  33  26     
+  sum(is.na(LC_Cleaned$total_acc)) #  25 NA
 
   # Plots and Histogramms
-  hist(mh_df$total_acc)
-  boxplot(mh_df$total_acc)
+  hist(LC_Cleaned$total_acc)
+  boxplot(LC_Cleaned$total_acc)
 
   # Plot target to total_acc
   boxplot(int_rate ~ total_acc, 
-          data = mh_df,
+          data = LC_Cleaned,
           main = "Box Plot of Interest Rate by Purpose",
           xlab = "Investigated Column",
           ylab = "Interest Rate",
@@ -811,7 +811,7 @@ if(show_plots_flag){
           cex.axis = 0.7) # Adjust label size if needed
 
   # Find the row indices NAs
-  column_to_search <- mh_df$total_acc
+  column_to_search <- LC_Cleaned$total_acc
   NA_indices <- which(is.na(column_to_search))
   # Display the rows with NAs
   data_with_NAvalue <- data[NA_indices, ]
@@ -821,18 +821,18 @@ if(show_plots_flag){
 # 34. initial_list_status ... The initial listing status of the loan. Possible values are – W, F
 
 
-mh_df$initial_list_status <- factor(mh_df$initial_list_status)
+LC_Cleaned$initial_list_status <- factor(LC_Cleaned$initial_list_status)
 # TODO-MHA: Transform capital W to lower-w
 
 if(show_plots_flag){
   # Investigate $initial_list_status, (character)
-  unique(mh_df$initial_list_status) # e.g.: ""f" "w""
-  sum(is.na(mh_df$initial_list_status)) # no missing values
-  summary(mh_df$initial_list_status)
-  table(mh_df$initial_list_status)
+  unique(LC_Cleaned$initial_list_status) # e.g.: ""f" "w""
+  sum(is.na(LC_Cleaned$initial_list_status)) # no missing values
+  summary(LC_Cleaned$initial_list_status)
+  table(LC_Cleaned$initial_list_status)
 
   # Barplot for initial_list_status
-  counts <- table(mh_df$initial_list_status)
+  counts <- table(LC_Cleaned$initial_list_status)
   barplot(counts,
           main = "Distribution of Character Column",
           xlab = "Categories",
@@ -845,12 +845,12 @@ if(show_plots_flag){
 
 
   # Make sure it worked
-  summary(mh_df$initial_list_status)
-  str(mh_df$initial_list_status)
+  summary(LC_Cleaned$initial_list_status)
+  str(LC_Cleaned$initial_list_status)
 
   # Plot target to initial_list_status
   boxplot(int_rate ~ initial_list_status, 
-          data = mh_df,
+          data = LC_Cleaned,
           main = "Box Plot of Interest Rate by Purpose",
           xlab = "Investigated Column",
           ylab = "Interest Rate",

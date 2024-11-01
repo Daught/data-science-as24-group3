@@ -42,16 +42,12 @@ if(!require('dplyr')) {                # Contains our data set
 
 # load data set
 #data <- read.csv2("ressources/LCdata.csv", header = TRUE, row.names=NULL, sep=";")
-dataset_file_path = "/home/selun/Dokumente/Sync/Master/03_Semester/DataScience/Assignment/data-science-as24-group3/Part1-LinearRegression/ressources/LCdata.csv"
+dataset_file_path = "./ressources/LCdata.csv"
 data <- read.csv2(dataset_file_path, header = TRUE, row.names=NULL, sep=";")
 
 LC <- data # make a copy of the original data set, so that we dont mess with it
 
 ##########################   2. Data Exploration   ##########################
-
-#### Examine Data Set
-show_plots_flag <- FALSE
-
 head(LC)
 
 str(LC)
@@ -205,33 +201,35 @@ LC_Cleaned <- subset(LC_Cleaned, select = -desc)
 
 
 # 19. 'purpose': A category provided by the borrower for the loan request.
-mh_df$purpose <- tolower(mh_df$purpose) # Convert all characters in the column to lowercase
-mh_df$purpose <- factor(mh_df$purpose) # Change to unordered factor
+LC_Cleaned$purpose <- tolower(LC_Cleaned$purpose) # Convert all characters in the column to lowercase
+LC_Cleaned$purpose <- factor(LC_Cleaned$purpose) # Change to unordered factor
 
 
 # 20. 'title': The loan title provided by the borrower.
+counts <- table(LC_Cleaned$zip_code)
+sorted_value_counts <- sort(counts, decreasing = TRUE)
 top_three_values <- names(sorted_value_counts)[1:3] # Identify the two most frequent values
 # Create a new column with grouped categories
-mh_df$grouped_title <- ifelse(mh_df$title %in% top_three_values,  mh_df$title, "Other")
-mh_df$grouped_title <- factor(mh_df$grouped_title) # Change to factor
+LC_Cleaned$grouped_title <- ifelse(LC_Cleaned$title %in% top_three_values,  LC_Cleaned$title, "Other")
+LC_Cleaned$grouped_title <- factor(LC_Cleaned$grouped_title) # Change to factor
 LC_Cleaned <- subset(LC_Cleaned, select = -title) # remove the original column
 
 
 # 21. 'zip_code': The first 3 numbers of the zip code provided by the borrower in the loan application.
 
 # TODO-MHA: gsub only the (first, second) number --> make categorical
-mh_df$zip_code <- gsub("xx", "", mh_df$zip_code) # Remove 'xx'
+LC_Cleaned$zip_code <- gsub("xx", "", LC_Cleaned$zip_code) # Remove 'xx'
 
 # dropped zip_code as redundant information with the feature addr_state
 LC_Cleaned <- subset(LC_Cleaned, select = -zip_code)
 
 # 22. 'addr_state': The state provided by the borrower in the loan application.
-mh_df$addr_state <- factor(mh_df$addr_state) # Change to factor
+LC_Cleaned$addr_state <- factor(LC_Cleaned$addr_state) # Change to factor
 
 
 # 23. 'dti': A ratio calculated using the borrower’s total monthly debt payments on the total debt obligations, 
 # excluding mortgage and the requested LC loan, divided by the borrower’s self-reported monthly income.
-filtered_data <- mh_df$dti[mh_df$dti < 150]
+filtered_data <- LC_Cleaned$dti[LC_Cleaned$dti < 150]
 
 
 # 24. 'delinq_2yrs': The number of 30+ days past-due incidences of delinquency in the borrower's credit file for the past 2 years.
@@ -242,10 +240,10 @@ filtered_data <- mh_df$dti[mh_df$dti < 150]
 # 25. 'earliest_cr_line': The month the borrower's earliest reported credit line was opened.
 
 # Remove all blank spaces from the values in the column so that NAs are clearly seen
-mh_df$earliest_cr_line <- gsub(" ", "", mh_df$earliest_cr_line)
+LC_Cleaned$earliest_cr_line <- gsub(" ", "", LC_Cleaned$earliest_cr_line)
 # Replace any empty strings (values with no content) with NA
-mh_df$earliest_cr_line[mh_df$earliest_cr_line == ""] <- NA
-mh_df$earliest_cr_line <- factor(mh_df$earliest_cr_line) # Change to factor
+LC_Cleaned$earliest_cr_line[LC_Cleaned$earliest_cr_line == ""] <- NA
+LC_Cleaned$earliest_cr_line <- factor(LC_Cleaned$earliest_cr_line) # Change to factor
 
 # TODO MHA: --> timestamping
 
@@ -267,7 +265,7 @@ mh_df$earliest_cr_line <- factor(mh_df$earliest_cr_line) # Change to factor
 
 
 # Replace NA's with 0, as no public record available
-df_cleaned$mths_since_last_record[is.na(df_cleaned$mths_since_last_record)] <- 0
+LC_Cleaned$mths_since_last_record[is.na(LC_Cleaned$mths_since_last_record)] <- 0
 
 # 29. open_acc ... The number of open credit lines in the borrower's credit file.
 #  25 NA
@@ -291,7 +289,7 @@ df_cleaned$mths_since_last_record[is.na(df_cleaned$mths_since_last_record)] <- 0
 
 
 # 34. initial_list_status ... The initial listing status of the loan. Possible values are – W, F
-mh_df$initial_list_status <- factor(mh_df$initial_list_status)
+LC_Cleaned$initial_list_status <- factor(LC_Cleaned$initial_list_status)
 # TODO-MHA: Transform capital W to lower-w
 
 
@@ -319,67 +317,67 @@ LC_Cleaned <- subset(LC_Cleaned, select = -out_prncp_inv)
 # total_pymnt reflects payment history, which happens after the loan has been issued, so it wouldn’t be a factor used to set the original interest rate.
 
 # Not relevant removing 'total_pymnt'
-df_cleaned <- subset(df_cleaned, select = -total_pymnt)
+LC_Cleaned <- subset(LC_Cleaned, select = -total_pymnt)
 
 
 # 2. total_pymnt_inv: 
 # reflects post-load payment behaviour, whereas the interest rate is determined before any payments are made.
 # Not available in the Test data!!!
-df_cleaned <- subset(df_cleaned, select = -total_pymnt_inv)
+LC_Cleaned <- subset(LC_Cleaned, select = -total_pymnt_inv)
 
 
 # 3. total_rec_prncp: Principal received to date
 # total_rec_prncp tracks the amount of principal repaid after the loan has been issued, whereas the interest rate is determined before any payments are made.
 # Not available in the Test data!!!
-df_cleaned <- subset(df_cleaned, select = -total_rec_prncp)
+LC_Cleaned <- subset(LC_Cleaned, select = -total_rec_prncp)
 
 
 #  4. total_rec_int: Interest received to date
 # total_rec_int reflects post-loan repayment behavior and simply tracks the interest that has been paid so far. 
 # Since the interest rate is already set when the loan is originated, total_rec_int is an outcome of the interest rate, not a factor influencing its determination.
 # Not available in the Test data!!!
-df_cleaned <- subset(df_cleaned, select = -total_rec_int)
+LC_Cleaned <- subset(LC_Cleaned, select = -total_rec_int)
 
 
 # 5. total_rec_late_fee: Late fees received to date
 # total_rec_late_fee tracks borrower behavior during the loan repayment process but does not provide information relevant to determining the interest rate at loan origination
 # Not available in the Test data!!!
-df_cleaned <- subset(df_cleaned, select = -total_rec_late_fee)
+LC_Cleaned <- subset(LC_Cleaned, select = -total_rec_late_fee)
 
 
 # 6. recoveries: post charge off gross recovery
 # recoveries is a post-loan feature that captures the amount recovered after the loan has defaulted,
 # Not available in the Test data!!!
-df_cleaned <- subset(df_cleaned, select = -recoveries)
+LC_Cleaned <- subset(LC_Cleaned, select = -recoveries)
 
 
 #7. collection_recovery_fee: post charge off collection fee
 # collection_recovery_fee represents a post-loan event related to recovering funds from a borrower after they have defaulted or missed payments
 # Not available in the Test data!!!
-df_cleaned <- subset(df_cleaned, select = -collection_recovery_fee)
+LC_Cleaned <- subset(LC_Cleaned, select = -collection_recovery_fee)
 
 
 # 8. last_pymnt_d: Last month payment was received
 # last_pymnt_d records the date of the most recent payment, which occurs after the loan has been issued 
 # Not available in the Test data!!!
-df_cleaned <- subset(df_cleaned, select = -last_pymnt_d)
+LC_Cleaned <- subset(LC_Cleaned, select = -last_pymnt_d)
 
 
 #9. last_pymnt_amnt: Last total payment amount received
 # last_pymnt_amnt reflects post-loan payment behavior and tracks the most recent payment made by the borrower.
 # Not available in the Test data!!!
-df_cleaned <- subset(df_cleaned, select = -last_pymnt_amnt)
+LC_Cleaned <- subset(LC_Cleaned, select = -last_pymnt_amnt)
 
 
 # 10. next_pymnt_d: Next scheduled payment date
 # next_pymnt_d is not eseential as it is a post-loan feature that indicates the next scheduled payment date, which occurs after the loan has been issued.
 # Not available in the Test data!!!
-df_cleaned <- subset(df_cleaned, select = -next_pymnt_d)
+LC_Cleaned <- subset(LC_Cleaned, select = -next_pymnt_d)
 
 
 # 11. Last_credit_pull_d: The most recent month LC pulled credit for this loan
 # tracks when the lender last accessed the borrower’s credit information, which happens after the loan is issued. 
-df_cleaned <- subset(df_cleaned, select = -last_credit_pull_d)
+LC_Cleaned <- subset(LC_Cleaned, select = -last_credit_pull_d)
 
 
 # 12. collections_12_mths_ex_med: Number of collections in 12 months excluding medical collections
@@ -387,7 +385,7 @@ df_cleaned <- subset(df_cleaned, select = -last_credit_pull_d)
 # which is a significant indicator of credit risk. Lenders use this information to assess the borrower’s likelihood of default and adjust the interest rate accordingly.
 
 # Remove values greater than 12
-df_cleaned <- df_cleaned[df_cleaned$collections_12_mths_ex_med <= 12, ]
+LC_Cleaned <- LC_Cleaned[LC_Cleaned$collections_12_mths_ex_med <= 12, ]
 # 126 NA's might need to be imputed.
 
 # TODO-SFE: DROP NA's
@@ -405,7 +403,7 @@ df_cleaned <- df_cleaned[df_cleaned$collections_12_mths_ex_med <= 12, ]
 # borrowers with no recent derogatory marks are seen as less risky, potentially resulting in a lower interest rate.
 
 # set all NA to the highest possible value: 0
-df_cleaned$mths_since_last_major_derog[is.na(df_cleaned$mths_since_last_major_derog)] <- 0
+LC_Cleaned$mths_since_last_major_derog[is.na(LC_Cleaned$mths_since_last_major_derog)] <- 0
 
 
 
@@ -433,10 +431,10 @@ df_cleaned$mths_since_last_major_derog[is.na(df_cleaned$mths_since_last_major_de
 # transforming 'application_type' as numeric factors where:
 # 0 is 'individual' a single borrower applies for the loan.
 # 1 is 'joint' the loan application is made by two co-borrowers, and both incomes, credit profiles, and financial situations are considered.
-df_cleaned$application_type <- as.numeric(factor(df_cleaned$application_type))
+LC_Cleaned$application_type <- as.numeric(factor(LC_Cleaned$application_type))
 
 # remove application_type for now, due to highly unbalanced dataset
-df_cleaned <- subset(df_cleaned, select = -application_type)
+LC_Cleaned <- subset(LC_Cleaned, select = -application_type)
 
 
 # TODO: application_type = joint --> annual_inc_joint
@@ -454,7 +452,7 @@ df_cleaned <- subset(df_cleaned, select = -application_type)
 # Conclusion:
 # cast 'annual_inc_joint' as numeric
 # we might need to merge 'annual_inc' and 'annual_inc_joint'
-df_cleaned$annual_inc_joint <- as.numeric(df_cleaned$annual_inc_joint)
+LC_Cleaned$annual_inc_joint <- as.numeric(LC_Cleaned$annual_inc_joint)
 
 
 # 17. dti_joint: A ratio calculated using the co-borrowers' total monthly payments on the total debt obligations, excluding mortgages and the requested LC loan, divided by the co-borrowers' combined self-reported monthly income
@@ -468,7 +466,7 @@ df_cleaned$annual_inc_joint <- as.numeric(df_cleaned$annual_inc_joint)
 # cast 'dti_joint' as numeric
 # A higher DTI ratio signifies higher risk to the lender, resulting in a higher interest rate. 
 # Conversely, a lower DTI ratio implies a greater ability to handle new debt, leading to a lower interest rate.
-df_cleaned$dti_joint <- as.numeric(df_cleaned$dti_joint)
+LC_Cleaned$dti_joint <- as.numeric(LC_Cleaned$dti_joint)
 
 
 # 18. verification_status_joint: Indicates if the co-borrowers' joint income was verified by LC, not verified, or if the income source was verified
@@ -479,14 +477,14 @@ df_cleaned$dti_joint <- as.numeric(df_cleaned$dti_joint)
 # 1 is 'Not Verified' the loan application is made by two co-borrowers, and both incomes, credit profiles, and financial situations are considered.
 # 2 is 'Source Verified'' 
 # 3 is 'Verified' 
-df_cleaned$verification_status_joint[is.na(df_cleaned$verification_status_joint)] <- "Not Verified"
-df_cleaned$verification_status_joint <- as.numeric(ordered(df_cleaned$verification_status_joint, levels = c("Not Verified", "Source Verified", "Verified")))
+LC_Cleaned$verification_status_joint[is.na(LC_Cleaned$verification_status_joint)] <- "Not Verified"
+LC_Cleaned$verification_status_joint <- as.numeric(ordered(LC_Cleaned$verification_status_joint, levels = c("Not Verified", "Source Verified", "Verified")))
 
 # Conclusion: Fully verified income provides assurance to the lender that the borrowers can afford to repay the loan, leading to a lower interest rate. 
 # In contrast, unverified income increases uncertainty and risk, which may result in a higher interest rate.
 # we might want to merge 'verification_status_joint' and 'verification_status'
 
-df_cleaned$verification_status <- as.numeric(ordered(df_cleaned$verification_status, levels = c("Not Verified", "Source Verified", "Verified")))
+LC_Cleaned$verification_status <- as.numeric(ordered(LC_Cleaned$verification_status, levels = c("Not Verified", "Source Verified", "Verified")))
 
 
 
