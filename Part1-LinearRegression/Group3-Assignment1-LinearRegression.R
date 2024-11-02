@@ -13,32 +13,23 @@
 
 ##############   1. Preliminaries   ##########################
 
-# Install / load packages
+# Install
+if(!require('corrplot')) install.packages('corrplot', dependencies = TRUE)
+if(!require('ggplot2')) install.packages('ggplot2', dependencies = TRUE)
+if(!require('tidyverse')) install.packages('tidyverse', dependencies = TRUE)
+if(!require('fastDummies')) install.packages('fastDummies', dependencies = TRUE)
+if(!require('GGally')) install.packages('GGally', dependencies = TRUE)
+if(!require('dplyr')) install.packages('dplyr', dependencies = TRUE)
+if(!require("caret")) install.packages("caret", dependencies = TRUE)
 
-if(!require('corrplot')) {              # Contains our data set
-  install.packages('corrplot')
-  library('corrplot')
-}
-if(!require('ggplot2')) {               # Contains our data set
-  install.packages('ggplot2')
-  library('ggplot2')
-}
-if(!require('tidyverse')) {             # Contains our data set
-  install.packages('tidyverse')
-  library('tidyverse')
-}
-if(!require('fastDummies')) {           # Contains our data set
-  install.packages('fastDummies')
-  library('fastDummies')
-}
-if(!require('GGally')) {                # Contains our data set
-  install.packages('GGally')
-  library('GGally')
-}
-if(!require('dplyr')) {                # Contains our data set
-  install.packages('dplyr')
-  library('dplyr')
-}
+# Load packages
+library('dplyr')
+library('caret')
+library('GGally')
+library('fastDummies')
+library('tidyverse')
+library('ggplot2')
+library('corrplot')
 
 # load data set
 #data <- read.csv2("ressources/LCdata.csv", header = TRUE, row.names=NULL, sep=";")
@@ -61,6 +52,42 @@ summary(LC)
 
 
 ##############   Step 2 - Data Preprocessing   ##########################
+
+clean_data_for_regression <- function(data, target_variable) {  
+  
+  # Step 1: Remove rows with missing target variable values
+  data <- data %>% filter(!is.na(!!sym(target_variable)))
+  
+  # Step 2: Impute missing values in predictors
+  data <- data %>% mutate(across(where(is.numeric), ~ ifelse(is.na(.), mean(., na.rm = TRUE), .)))
+  data <- data %>% mutate(across(where(is.character), ~ ifelse(is.na(.), "Unknown", .)))
+  
+  # Step 3: One-hot encode categorical variables
+  data <- data %>% mutate(across(where(is.character), as.factor))
+  data <- dummyVars(~ ., data = data) %>% predict(newdata = data) %>% as.data.frame()
+  
+  # Step 4: Remove outliers in numerical predictors using the IQR method
+  numerical_columns <- data %>% select(where(is.numeric)) %>% names()
+  
+  for (col in numerical_columns) {
+    Q1 <- quantile(data[[col]], 0.25, na.rm = TRUE)
+    Q3 <- quantile(data[[col]], 0.75, na.rm = TRUE)
+    IQR <- Q3 - Q1
+    lower_bound <- Q1 - 1.5 * IQR
+    upper_bound <- Q3 + 1.5 * IQR
+    data <- data %>% filter(data[[col]] >= lower_bound & data[[col]] <= upper_bound)
+  }
+  
+  # Step 5: Normalize numeric features for scaling
+  data <- data %>% mutate(across(where(is.numeric), scale))
+  
+  # Step 6: Separate target variable for regression model compatibility
+  target <- data[[target_variable]]
+  data <- data %>% select(-all_of(target_variable))
+  data$target <- target
+  
+  return(data)
+}
 
 # Feature Descriptions:
 # 1. id: This is a unique identifier for each loan listing. Although it's essential for tracking loans, it holds no predictive value 
@@ -279,7 +306,7 @@ LC_Cleaned$mths_since_last_record[is.na(LC_Cleaned$mths_since_last_record)] <- 0
 #  2 NA
 
 
-# 32. revol_util ... Revolving line utilization rate, or the amount of credit the borrower is using relative to all available revolving credit.
+# 32. revol_util ... Revolving line utilization rate, or the amount of credit the borrower is using relative to all available revolving credit. # nolint
 
 #  454 NA
 
@@ -304,86 +331,80 @@ LC_Cleaned <- subset(LC_Cleaned, select = -out_prncp_inv)
 
 
 #Feature Descriptions:
-# 1. total_pymnt: Payments received to date for total amount funded.
-# The column has the type character and should be casted as a numerical value.
-# Not available in the Test data!!!
-
+# 37. total_pymnt: Payments received to date for total amount funded.
 # This column tracks the repayment behaviour of the borrower, it is likely not a factor
 # that would directly determine the interest rate at the time othe loan is issued. The interest rate is usually set at the beginning of the loan based on the
 # borrowers credit risk and financial history, not on how much the borrower has paid over time.
-
 # Conclusion:
 # The interest rate is generally determined based on risk factors before loan issuance, such as creditworthiness, income, loan amount, and loan term.
 # total_pymnt reflects payment history, which happens after the loan has been issued, so it wouldn’t be a factor used to set the original interest rate.
-
-# Not relevant removing 'total_pymnt'
+# Not available in the Test data!!!
 LC_Cleaned <- subset(LC_Cleaned, select = -total_pymnt)
 
 
-# 2. total_pymnt_inv: 
+# 38. total_pymnt_inv: 
 # reflects post-load payment behaviour, whereas the interest rate is determined before any payments are made.
 # Not available in the Test data!!!
 LC_Cleaned <- subset(LC_Cleaned, select = -total_pymnt_inv)
 
 
-# 3. total_rec_prncp: Principal received to date
+# 39. total_rec_prncp: Principal received to date
 # total_rec_prncp tracks the amount of principal repaid after the loan has been issued, whereas the interest rate is determined before any payments are made.
 # Not available in the Test data!!!
 LC_Cleaned <- subset(LC_Cleaned, select = -total_rec_prncp)
 
 
-#  4. total_rec_int: Interest received to date
+#  40. total_rec_int: Interest received to date
 # total_rec_int reflects post-loan repayment behavior and simply tracks the interest that has been paid so far. 
 # Since the interest rate is already set when the loan is originated, total_rec_int is an outcome of the interest rate, not a factor influencing its determination.
 # Not available in the Test data!!!
 LC_Cleaned <- subset(LC_Cleaned, select = -total_rec_int)
 
 
-# 5. total_rec_late_fee: Late fees received to date
+# 41. total_rec_late_fee: Late fees received to date
 # total_rec_late_fee tracks borrower behavior during the loan repayment process but does not provide information relevant to determining the interest rate at loan origination
 # Not available in the Test data!!!
 LC_Cleaned <- subset(LC_Cleaned, select = -total_rec_late_fee)
 
 
-# 6. recoveries: post charge off gross recovery
+# 42. recoveries: post charge off gross recovery
 # recoveries is a post-loan feature that captures the amount recovered after the loan has defaulted,
 # Not available in the Test data!!!
 LC_Cleaned <- subset(LC_Cleaned, select = -recoveries)
 
 
-#7. collection_recovery_fee: post charge off collection fee
+# 43. collection_recovery_fee: post charge off collection fee
 # collection_recovery_fee represents a post-loan event related to recovering funds from a borrower after they have defaulted or missed payments
 # Not available in the Test data!!!
 LC_Cleaned <- subset(LC_Cleaned, select = -collection_recovery_fee)
 
 
-# 8. last_pymnt_d: Last month payment was received
+# 44. last_pymnt_d: Last month payment was received
 # last_pymnt_d records the date of the most recent payment, which occurs after the loan has been issued 
 # Not available in the Test data!!!
 LC_Cleaned <- subset(LC_Cleaned, select = -last_pymnt_d)
 
 
-#9. last_pymnt_amnt: Last total payment amount received
+# 45. last_pymnt_amnt: Last total payment amount received
 # last_pymnt_amnt reflects post-loan payment behavior and tracks the most recent payment made by the borrower.
 # Not available in the Test data!!!
 LC_Cleaned <- subset(LC_Cleaned, select = -last_pymnt_amnt)
 
 
-# 10. next_pymnt_d: Next scheduled payment date
+# 46. next_pymnt_d: Next scheduled payment date
 # next_pymnt_d is not eseential as it is a post-loan feature that indicates the next scheduled payment date, which occurs after the loan has been issued.
 # Not available in the Test data!!!
 LC_Cleaned <- subset(LC_Cleaned, select = -next_pymnt_d)
 
 
-# 11. Last_credit_pull_d: The most recent month LC pulled credit for this loan
+# 47. Last_credit_pull_d: The most recent month LC pulled credit for this loan
 # tracks when the lender last accessed the borrower’s credit information, which happens after the loan is issued. 
 LC_Cleaned <- subset(LC_Cleaned, select = -last_credit_pull_d)
 
 
-# 12. collections_12_mths_ex_med: Number of collections in 12 months excluding medical collections
+# 48. collections_12_mths_ex_med: Number of collections in 12 months excluding medical collections
 # collections_12_mths_ex_med reflects the borrower’s history of debt mismanagement over the past 12 months (excluding medical-related collections), 
 # which is a significant indicator of credit risk. Lenders use this information to assess the borrower’s likelihood of default and adjust the interest rate accordingly.
-
 # Remove values greater than 12
 LC_Cleaned <- LC_Cleaned[LC_Cleaned$collections_12_mths_ex_med <= 12, ]
 # 126 NA's might need to be imputed.
