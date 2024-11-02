@@ -330,7 +330,6 @@ LC_Cleaned <- subset(LC_Cleaned, select = -out_prncp_inv)
 
 
 
-#Feature Descriptions:
 # 37. total_pymnt: Payments received to date for total amount funded.
 # This column tracks the repayment behaviour of the borrower, it is likely not a factor
 # that would directly determine the interest rate at the time othe loan is issued. The interest rate is usually set at the beginning of the loan based on the
@@ -405,107 +404,50 @@ LC_Cleaned <- subset(LC_Cleaned, select = -last_credit_pull_d)
 # 48. collections_12_mths_ex_med: Number of collections in 12 months excluding medical collections
 # collections_12_mths_ex_med reflects the borrower’s history of debt mismanagement over the past 12 months (excluding medical-related collections), 
 # which is a significant indicator of credit risk. Lenders use this information to assess the borrower’s likelihood of default and adjust the interest rate accordingly.
-# Remove values greater than 12
-LC_Cleaned <- LC_Cleaned[LC_Cleaned$collections_12_mths_ex_med <= 12, ]
-# 126 NA's might need to be imputed.
-
-# TODO-SFE: DROP NA's
 # Consclusion:
 # collections_12_mths_ex_med is an important feature for predicting int_rate, as it directly impacts the lender’s risk assessment during the loan origination process.
+LC_Cleaned <- clean_data_for_regression(LC_Cleaned,"collections_12_mths_ex_med")
+LC_Cleaned <- LC_Cleaned[LC_Cleaned$collections_12_mths_ex_med <= 12, ] # Remove values greater than 12, as they are outliers
 
 
-# 13. mths_since_last_major_derog: Months since most recent 90-day or worse rating
+# 49. mths_since_last_major_derog: Months since most recent 90-day or worse rating
 # mths_since_last_major_derog refers to the number of months since the borrower's last major derogatory mark on their credit file.
 # This feature is highly relevant, as it directly reflects the borrower's credit history. It indicates how recently the borrower experienced a significant credit problem.
-
-# mths_since_last_major_derog has a lot of missing values NA's (599106), if the borrower has no major deroagatory event the value is NA.
-
-# Conclusion: A borrower with a recent major derogatory event is seen as a higher risk and will likely face a higher interest rate. On the other hand,
-# borrowers with no recent derogatory marks are seen as less risky, potentially resulting in a lower interest rate.
-
-# set all NA to the highest possible value: 0
-LC_Cleaned$mths_since_last_major_derog[is.na(LC_Cleaned$mths_since_last_major_derog)] <- 0
-
-
-
-
-# 14. policy_code: publicly available policy_code=1, new products not publicly available policy_code=2
-# policy_code might have a moderate influence on int_rate, particularly if different policies or products have different interest rate models
-
-# 126 NA's might need to be imputed.
 # Conclusion:
-# the policy code has it's min and max at 1, the 126 data-point which have NA might be relevant. --> to be discussed
-# TODO-SFE: removing NA's
+# A borrower with a recent major derogatory event is seen as a higher risk and will likely face a higher interest rate. On the other hand,
+# borrowers with no recent derogatory marks are seen as less risky, potentially resulting in a lower interest rate.
+LC_Cleaned$mths_since_last_major_derog[is.na(LC_Cleaned$mths_since_last_major_derog)] <- 0 # mths_since_last_major_derog has a lot of missing values NA's (599106), if the borrower has no major deroagatory event the value is NA.
+LC_Cleaned <- clean_data_for_regression(LC_Cleaned,"mths_since_last_major_derog")
 
 
+# 50. policy_code: publicly available policy_code=1, new products not publicly available policy_code=2
+# policy_code might have a moderate influence on int_rate, particularly if different policies or products have different interest rate models
+# Conclusion:
+# the policy code has it's min and max at 1, the 126 data-point which have NA might be relevant.
+LC_Cleaned <- clean_data_for_regression(LC_Cleaned,"policy_code") # 126 NA's might need to be imputed.
 
 
-# 15. application_type: Indicates whether the loan is an individual application or a joint application with two co-borrowers
+# 51. application_type: Indicates whether the loan is an individual application or a joint application with two co-borrowers
 # application_type differentiates between individual and joint applications. 
 # Joint applications tend to reduce risk by incorporating the financial profiles and incomes of two borrowers, which may result in a lower interest rate.
-
-# 126 NA's might need to be imputed.
-
 # Conclusion:
 # Individual applications are considered higher risk due to reliance on a single borrower’s financial situation.
-
 # transforming 'application_type' as numeric factors where:
 # 0 is 'individual' a single borrower applies for the loan.
 # 1 is 'joint' the loan application is made by two co-borrowers, and both incomes, credit profiles, and financial situations are considered.
-LC_Cleaned$application_type <- as.numeric(factor(LC_Cleaned$application_type))
+LC_Cleaned <- clean_data_for_regression(LC_Cleaned,"application_type")
 
-# remove application_type for now, due to highly unbalanced dataset
-LC_Cleaned <- subset(LC_Cleaned, select = -application_type)
+# Approach: Option 2 (Exclude Joint Attributes with Business Rules for Joint Applications)
+# Reasoning:
+# - Given the limited presence of joint applications (only 13 cases), excluding joint attributes simplifies the model without significantly impacting its generalization capability.
+# - Business rules offer a practical way to account for joint applications in a manner consistent with lending policies, which may improve real-world applicability.
+# - This approach avoids potential distortion from imputation and the complexity of training separate models, which isn’t feasible given the data volume.
 
-
-# TODO: application_type = joint --> annual_inc_joint
-# application_type = individual --> annual_inc
-# --> New Feature: anual_inc_merged, do not delete application_type
-
-# TODO-SFE: merge, remove current, check for NA's
-
-# 16. annual_inc_joint: The combined self-reported annual income provided by the co-borrowers during registration
-# annual_inc_joint reflects the combined financial capacity of two borrowers in a joint loan application, 
-# and higher combined income typically reduces the lender’s risk, leading to a lower interest rate.
-
-# TODO-SFE: merge, remove current, check for NA's
-
-# Conclusion:
-# cast 'annual_inc_joint' as numeric
-# we might need to merge 'annual_inc' and 'annual_inc_joint'
-LC_Cleaned$annual_inc_joint <- as.numeric(LC_Cleaned$annual_inc_joint)
-
-
-# 17. dti_joint: A ratio calculated using the co-borrowers' total monthly payments on the total debt obligations, excluding mortgages and the requested LC loan, divided by the co-borrowers' combined self-reported monthly income
-# dti_joint refers to the debt-to-income (DTI) ratio for joint loan applications. 
-# It is calculated as the total monthly debt obligations of both co-borrowers (excluding mortgage payments) divided by their combined monthly income. 
-# This ratio provides a picture of how much of the co-borrowers' income is committed to repaying debt, helping lenders assess their ability to take on additional loans.
- 
-# TODO-SFE: merge, remove current, check for NA's
-
-# Conclusion:
-# cast 'dti_joint' as numeric
-# A higher DTI ratio signifies higher risk to the lender, resulting in a higher interest rate. 
-# Conversely, a lower DTI ratio implies a greater ability to handle new debt, leading to a lower interest rate.
-LC_Cleaned$dti_joint <- as.numeric(LC_Cleaned$dti_joint)
-
-
-# 18. verification_status_joint: Indicates if the co-borrowers' joint income was verified by LC, not verified, or if the income source was verified
-
-# TODO-SFE: merge, remove current, check for NA's
-
-# transforming 'verification_status_joint' as numeric factors where:
-# 1 is 'Not Verified' the loan application is made by two co-borrowers, and both incomes, credit profiles, and financial situations are considered.
-# 2 is 'Source Verified'' 
-# 3 is 'Verified' 
-LC_Cleaned$verification_status_joint[is.na(LC_Cleaned$verification_status_joint)] <- "Not Verified"
-LC_Cleaned$verification_status_joint <- as.numeric(ordered(LC_Cleaned$verification_status_joint, levels = c("Not Verified", "Source Verified", "Verified")))
-
-# Conclusion: Fully verified income provides assurance to the lender that the borrowers can afford to repay the loan, leading to a lower interest rate. 
-# In contrast, unverified income increases uncertainty and risk, which may result in a higher interest rate.
-# we might want to merge 'verification_status_joint' and 'verification_status'
-
-LC_Cleaned$verification_status <- as.numeric(ordered(LC_Cleaned$verification_status, levels = c("Not Verified", "Source Verified", "Verified")))
+# Train the Model on Individual Applications Only
+# Remove joint-specific features for training
+individual_data <- loan_data %>%
+  filter(application_type == "INDIVIDUAL") %>%
+  select(-c(annual_inc_joint, dti_joint, verification_status_joint))
 
 
 
@@ -514,9 +456,31 @@ LC_Cleaned$verification_status <- as.numeric(ordered(LC_Cleaned$verification_sta
 
 
 
+##############   Step 3 - Prediction Task   ##########################
 
 
 
+# Train a regression model (e.g., linear regression) using individual data
+model <- train(int_rate ~ ., data = LC_Cleaned, method = "lm")
+
+# Generate predictions for all applications (including joint)
+LC_Cleaned$predicted_int_rate <- predict(model, newdata = LC_Cleaned)
+
+
+
+##############   Step 4 - Post-Processing (apply business rules)   ##########################
+
+# Apply business rules for joint applications
+LC_Cleaned <- LC_Cleaned %>%
+  mutate(final_int_rate = case_when(
+    application_type == "JOINT" & verification_status_joint == "Source Verified" ~ predicted_int_rate,
+    application_type == "JOINT" & verification_status_joint == "Verified" ~ predicted_int_rate * 1.02,  # Increase by 2%
+    application_type == "JOINT" & verification_status_joint == "Not Verified" ~ NA_real_,  # Flag or set to NA
+    TRUE ~ predicted_int_rate  # Keep the original prediction for individual applications
+  ))
+
+# Display the final interest rates with adjustments
+head(LC_Cleaned %>% select(application_type, verification_status_joint, predicted_int_rate, final_int_rate))
 
 
 
