@@ -104,62 +104,6 @@ clean_column <- function(data, column_name, k = 5, outlier_factor = 1.5, is_orde
   return(data)
 }
 
-#clean_data_for_regression <- function(data, target_variable, k = 5, outlier_factor = 1.5, is_ordered_factor = FALSE) {
-#  
-#  # Step 1: Remove rows with missing target variable values
-#  data <- data %>% filter(!is.na(!!sym(target_variable)))
-#  
-#  # Step 2: Impute missing values using kNN for numeric predictors and fill NA for character columns
-#  # This uses VIM's kNN imputation, which can handle mixed data types (numeric and factor)
-#  #data <- kNN(data, variable = names(data %>% select(where(is.numeric))), k = k, imp_var = FALSE)
-#  #data <- data %>% mutate(across(where(is.character), ~ ifelse(is.na(.), "Unknown", .)))
-#  
-#  # Step 2: Impute missing values (mean for now due to memory constraints)
-#  data <- data %>% mutate(across(where(is.numeric), ~ ifelse(is.na(.), mean(., na.rm = TRUE), .)))
-#  data <- data %>% mutate(across(where(is.character), ~ ifelse(is.na(.), "Unknown", .)))
-#  
-#    # Step 3: Convert character columns to factors and drop single-level factors
-#  data <- data %>% mutate(across(where(is.character), as.factor))
-#  
-#  # Handle ordered factors if needed (manually adjust based on known columns)
-#  # data$your_ordered_column <- factor(data$your_ordered_column, levels = c("Low", "Medium", "High"), ordered = TRUE)
-#  
-#  # Drop factors with only one level to avoid issues with contrasts
-#  data <- data %>%
-#    select(where(~ !is.factor(.) || (is.factor(.) && nlevels(.) > 1)))
-#  
-#  # Step 4: One-hot encode only low-cardinality categorical variables
-#  low_cardinality_factors <- data %>% select(where(is.factor)) %>%
-#    select_if(~ nlevels(.) < 20)  # Adjust 20 to a suitable level for your data
-#  dummy_vars <- dummyVars(~ ., data = low_cardinality_factors)
-#  encoded_data <- predict(dummy_vars, newdata = low_cardinality_factors) %>% as.data.frame()
-#  
-#  # Bind the encoded data back to the original data and remove original columns
-#  data <- data %>% select(-names(low_cardinality_factors)) %>% bind_cols(encoded_data)
-#  
-#  # Step 5: Remove outliers in numerical predictors using the IQR method
-#  numerical_columns <- data %>% select(where(is.numeric)) %>% names()
-#  
-#  for (col in numerical_columns) {
-#    Q1 <- quantile(data[[col]], 0.25, na.rm = TRUE)
-#    Q3 <- quantile(data[[col]], 0.75, na.rm = TRUE)
-#    IQR <- Q3 - Q1
-#    lower_bound <- Q1 - outlier_factor * IQR
-#    upper_bound <- Q3 + outlier_factor * IQR
-#    data <- data %>% filter(data[[col]] >= lower_bound & data[[col]] <= upper_bound)
-#  }
-#  
-#  # Step 6: Normalize numeric features for scaling
-#  data <- data %>% mutate(across(where(is.numeric), ~ scale(.) %>% as.numeric()))
-#  
-#  # Step 7: Separate target variable
-#  target <- data[[target_variable]]
-#  data <- data %>% select(-all_of(target_variable))
-#  data$target <- target
-#  
-#  return(data)
-#}
-
 # Feature Descriptions:
 # 1. id: This is a unique identifier for each loan listing. Although it's essential for tracking loans, it holds no predictive value 
 #    for analysis. We'll check for any anomalies (missing, zero, or negative values) and remove it as it's irrelevant for our analysis.
@@ -480,7 +424,6 @@ LC_Cleaned <- subset(LC_Cleaned, select = -last_credit_pull_d)
 #LC_Cleaned$collections_12_mths_ex_med <- factor(LC_Cleaned$collections_12_mths_ex_med)
 LC_Cleaned$collections_12_mths_ex_med <- LC_Cleaned$collections_12_mths_ex_med[is.na(LC_Cleaned$collections_12_mths_ex_med)] <- 0
 LC_Cleaned <- clean_column(LC_Cleaned,"collections_12_mths_ex_med")
-#LC_Cleaned <- LC_Cleaned[LC_Cleaned$collections_12_mths_ex_med <= 12, ] # Remove values greater than 12, as they are outliers
 
 
 # 49. mths_since_last_major_derog: Months since most recent 90-day or worse rating
@@ -504,8 +447,6 @@ LC_Cleaned <- clean_column(LC_Cleaned, "mths_since_last_major_derog")
 LC_Cleaned <- clean_column(LC_Cleaned,"policy_code") # 126 NA's might need to be imputed.
 
 
-
-
 # 51. application_type: Indicates whether the loan is an individual application or a joint application with two co-borrowers
 # application_type differentiates between individual and joint applications. 
 # Joint applications tend to reduce risk by incorporating the financial profiles and incomes of two borrowers, which may result in a lower interest rate.
@@ -515,14 +456,6 @@ LC_Cleaned <- clean_column(LC_Cleaned,"policy_code") # 126 NA's might need to be
 # 0 is 'individual' a single borrower applies for the loan.
 # 1 is 'joint' the loan application is made by two co-borrowers, and both incomes, credit profiles, and financial situations are considered.
 
-LC_Cleaned <- LC_Cleaned %>% 
-  filter(LC_Cleaned$application_type == "INDIVIDUAL") %>%
-  select(-c('annual_inc_joint', 'dti_joint', 'verification_status_joint'))
-
-
-
-
-
 # Approach: Option 2 (Exclude Joint Attributes with Business Rules for Joint Applications)
 # Reasoning:
 # - Given the limited presence of joint applications (only 13 cases), excluding joint attributes simplifies the model without significantly impacting its generalization capability.
@@ -531,12 +464,9 @@ LC_Cleaned <- LC_Cleaned %>%
 
 # Train the Model on Individual Applications Only
 # Remove joint-specific features for training
-
-
-
-
-
-
+LC_Cleaned <- LC_Cleaned %>% 
+  filter(LC_Cleaned$application_type == "INDIVIDUAL") %>%
+  select(-c('annual_inc_joint', 'dti_joint', 'verification_status_joint'))
 
 
 
