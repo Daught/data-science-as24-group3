@@ -299,40 +299,54 @@ LC_Cleaned <- subset(LC_Cleaned, select = -emp_length)
 
 # 11. home_ownership: Indicates whether the borrower owns, rents, or has a mortgage on their home.
 #     Convert this to an ordered set of integers and create dummy columns for categorical analysis.
-#     We have 47 missing values.. to OTHER? Or shall we drop them? only
+#     We have 47 missing values.. we assign those to Other. "Other" is also unknown.
 
-# TODO-Firat: add NA's to Other
+sum(is.na(LC_Cleaned$home_ownership))  # Looking for missing values
+
+table(LC_Cleaned$home_ownership) # We see that there are 2 "Any" 45 "None"values
+
+# these values are assigned to Other (Other is unclear as well.)
+# Replace "ANY" and "NONE" with "OTHER" in the home_ownership column
+LC_Cleaned$home_ownership[LC_Cleaned$home_ownership %in% c("ANY", "NONE")] <- "OTHER"
+
+table(LC_Cleaned$home_ownership) # We see that there are 2 "Any" 45 "None"values
 
 # Convert 'home_ownership' to ordered integer
 LC_Cleaned$home_ownership <- as.integer(ordered(LC_Cleaned$home_ownership, levels = c("OTHER", "RENT", "MORTGAGE", "OWN")))
 
-sum(is.na(LC_Cleaned$home_ownership))  # Looking for missing values
-# Drop rows with missing values in 'home_ownership'
-filter(LC_Cleaned, is.na(LC_Cleaned$home_ownership))
-LC_Cleaned <- filter(LC_Cleaned, !is.na(LC_Cleaned$home_ownership))
-filter(LC_Cleaned, is.na(LC_Cleaned$home_ownership))
+# check unique values
+unique(LC_Cleaned$home_ownership)
 
 # Create dummy columns for 'home_ownership'
 LC_Cleaned <- dummy_columns(LC_Cleaned, select_columns = "home_ownership", remove_selected_columns = TRUE)
 
+# Check the names of the new dummy columns generated for 'home_ownership'
+colnames(LC_Cleaned)
+
+# View the first few rows of the new dummy columns to confirm
+head(LC_Cleaned[, grepl("home_ownership_", colnames(LC_Cleaned))])
+
+# Calculate the count of each dummy column
+(dummy_counts <- colSums(LC_Cleaned[, grepl("home_ownership_", colnames(LC_Cleaned))]))
 
 
 # 12. annual_inc: The annual income reported by the borrower during registration.
 #     Convert from string to integer, check for missing, zero, or extreme values, and handle any income outliers.
-
-# TODO-Firat: might be impactfull feature, might need some adjustments
 
 
 if(show_plots_flag){
   summary(LC_Cleaned$annual_inc)  # Summary of loan term distribution
   sum(is.na(LC_Cleaned$annual_inc))  # Looking for missing values
   sum(LC_Cleaned$annual_inc == 0)    # Checking for zero amounts. There are 2
-  sum(LC_Cleaned$annual_inc < 0)     # Ensuring no negative values
+  sum(LC_Cleaned$annual_inc < 0)     # Ensuring no negative values. There are 4
 }
 
 # Convert 'annual_inc' to integer
-# Firat check: LC_Cleaned <- filter(LC_Cleaned, !is.na(annual_inc))
-# Firat check: LC_Cleaned$annual_inc <- as.integer(LC_Cleaned$annual_inc)
+LC_Cleaned <- filter(LC_Cleaned, !is.na(annual_inc))
+# Remove rows with negative values in 'annual_inc'
+LC_Cleaned <- filter(LC_Cleaned, annual_inc >= 0)
+# Convert 'annual_inc' to integer
+LC_Cleaned$annual_inc <- as.integer(LC_Cleaned$annual_inc)
 
 if(show_plots_flag){
   ggplot(data = LC_Cleaned, aes(x = annual_inc)) +
@@ -352,6 +366,7 @@ if(show_plots_flag){
 
   # Needs to be discussed.. I suppose that pople entered the income incorrectely. Seems like they entered the "cents"as well.
 # Suggestion: If this is the case the we need a threshold (here 1M).. could also be real (Sucessfull people take out loans!)
+# Le's continue with these values and see how the regression behaves.. We do not have proof that the annual income has a mistake.  
 
 #LC_Cleaned$annual_inc <- ifelse(LC_Cleaned$annual_inc >= 1000000, LC_Cleaned$annual_inc / 100, LC_Cleaned$annual_inc)
 #filter(LC_Cleaned, annual_inc > 1000000)
