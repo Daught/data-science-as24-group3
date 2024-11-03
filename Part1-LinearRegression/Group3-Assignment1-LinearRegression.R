@@ -21,6 +21,7 @@ if(!require('fastDummies')) install.packages('fastDummies', dependencies = TRUE)
 if(!require('GGally')) install.packages('GGally', dependencies = TRUE)
 if(!require('dplyr')) install.packages('dplyr', dependencies = TRUE)
 if(!require("caret")) install.packages("caret", dependencies = TRUE)
+if(!require("VIM")) install.packages("VIM", dependencies = TRUE)
 
 # Load packages
 library('dplyr')
@@ -30,6 +31,7 @@ library('fastDummies')
 library('tidyverse')
 library('ggplot2')
 library('corrplot')
+library('VIM')  # For kNN imputation
 
 # load data set
 #data <- read.csv2("ressources/LCdata.csv", header = TRUE, row.names=NULL, sep=";")
@@ -53,41 +55,110 @@ summary(LC)
 
 ##############   Step 2 - Data Preprocessing   ##########################
 
-clean_data_for_regression <- function(data, target_variable) {  
+clean_column <- function(data, column_name, k = 5, outlier_factor = 1.5, is_ordered_factor = FALSE) {
   
-  # Step 1: Remove rows with missing target variable values
-  data <- data %>% filter(!is.na(!!sym(target_variable)))
+ # Step 1: Remove rows with missing values in the specified column only
+  data <- data[!is.na(data[[column_name]]), ]
   
-  # Step 2: Impute missing values in predictors
-  data <- data %>% mutate(across(where(is.numeric), ~ ifelse(is.na(.), mean(., na.rm = TRUE), .)))
-  data <- data %>% mutate(across(where(is.character), ~ ifelse(is.na(.), "Unknown", .)))
-  
-  # Step 3: One-hot encode categorical variables
-  data <- data %>% mutate(across(where(is.character), as.factor))
-  data <- dummyVars(~ ., data = data) %>% predict(newdata = data) %>% as.data.frame()
-  
-  # Step 4: Remove outliers in numerical predictors using the IQR method
-  numerical_columns <- data %>% select(where(is.numeric)) %>% names()
-  
-  for (col in numerical_columns) {
-    Q1 <- quantile(data[[col]], 0.25, na.rm = TRUE)
-    Q3 <- quantile(data[[col]], 0.75, na.rm = TRUE)
-    IQR <- Q3 - Q1
-    lower_bound <- Q1 - 1.5 * IQR
-    upper_bound <- Q3 + 1.5 * IQR
-    data <- data %>% filter(data[[col]] >= lower_bound & data[[col]] <= upper_bound)
+  # Step 2: Impute missing values only in the specified column (if any remain after filtering)
+  if (is.numeric(data[[column_name]])) {
+    # Impute missing values with mean for numeric columns
+    # data[[column_name]][is.na(data[[column_name]])] <- mean(data[[column_name]], na.rm = TRUE)
+    
+    # Apply kNN imputation to the specified column if it has missing values
+    if (any(is.na(data[[column_name]]))) {
+      data[[column_name]] <- kNN(data[, column_name, drop = FALSE], variable = column_name, k = k, imp_var = FALSE)[[column_name]]
+    }
+  } else if (is.character(data[[column_name]])) {
+    # Replace missing values with "Unknown" for character columns
+    data[[column_name]][is.na(data[[column_name]])] <- "Unknown"
+    # Convert to factor
+    data[[column_name]] <- as.factor(data[[column_name]])
   }
   
-  # Step 5: Normalize numeric features for scaling
-  data <- data %>% mutate(across(where(is.numeric), scale))
+  # Step 3: Convert to ordered factor if specified and if it is a factor
+  if (is_ordered_factor && is.factor(data[[column_name]])) {
+    data[[column_name]] <- factor(data[[column_name]], ordered = TRUE)
+  }
   
-  # Step 6: Separate target variable for regression model compatibility
-  target <- data[[target_variable]]
-  data <- data %>% select(-all_of(target_variable))
-  data$target <- target
+  # Step 4: Check if the column is a single-level factor and throw an error if so
+  if (is.factor(data[[column_name]]) && nlevels(data[[column_name]]) <= 1) {
+    stop("Specified column has only one level after cleaning, which may be insufficient for regression.")
+  }
+  
+  # Step 5: Remove outliers in the specified column only if it is numeric
+  if (is.numeric(data[[column_name]])) {
+    Q1 <- quantile(data[[column_name]], 0.25, na.rm = TRUE)
+    Q3 <- quantile(data[[column_name]], 0.75, na.rm = TRUE)
+    IQR <- Q3 - Q1
+    lower_bound <- Q1 - outlier_factor * IQR
+    upper_bound <- Q3 + outlier_factor * IQR
+    data <- data[data[[column_name]] >= lower_bound & data[[column_name]] <= upper_bound, ]
+  }
+  
+  # Step 6: Normalize the specified column if it is numeric
+  if (is.numeric(data[[column_name]])) {
+    data[[column_name]] <- scale(data[[column_name]]) %>% as.numeric()
+  }
   
   return(data)
 }
+
+#clean_data_for_regression <- function(data, target_variable, k = 5, outlier_factor = 1.5, is_ordered_factor = FALSE) {
+#  
+#  # Step 1: Remove rows with missing target variable values
+#  data <- data %>% filter(!is.na(!!sym(target_variable)))
+#  
+#  # Step 2: Impute missing values using kNN for numeric predictors and fill NA for character columns
+#  # This uses VIM's kNN imputation, which can handle mixed data types (numeric and factor)
+#  #data <- kNN(data, variable = names(data %>% select(where(is.numeric))), k = k, imp_var = FALSE)
+#  #data <- data %>% mutate(across(where(is.character), ~ ifelse(is.na(.), "Unknown", .)))
+#  
+#  # Step 2: Impute missing values (mean for now due to memory constraints)
+#  data <- data %>% mutate(across(where(is.numeric), ~ ifelse(is.na(.), mean(., na.rm = TRUE), .)))
+#  data <- data %>% mutate(across(where(is.character), ~ ifelse(is.na(.), "Unknown", .)))
+#  
+#    # Step 3: Convert character columns to factors and drop single-level factors
+#  data <- data %>% mutate(across(where(is.character), as.factor))
+#  
+#  # Handle ordered factors if needed (manually adjust based on known columns)
+#  # data$your_ordered_column <- factor(data$your_ordered_column, levels = c("Low", "Medium", "High"), ordered = TRUE)
+#  
+#  # Drop factors with only one level to avoid issues with contrasts
+#  data <- data %>%
+#    select(where(~ !is.factor(.) || (is.factor(.) && nlevels(.) > 1)))
+#  
+#  # Step 4: One-hot encode only low-cardinality categorical variables
+#  low_cardinality_factors <- data %>% select(where(is.factor)) %>%
+#    select_if(~ nlevels(.) < 20)  # Adjust 20 to a suitable level for your data
+#  dummy_vars <- dummyVars(~ ., data = low_cardinality_factors)
+#  encoded_data <- predict(dummy_vars, newdata = low_cardinality_factors) %>% as.data.frame()
+#  
+#  # Bind the encoded data back to the original data and remove original columns
+#  data <- data %>% select(-names(low_cardinality_factors)) %>% bind_cols(encoded_data)
+#  
+#  # Step 5: Remove outliers in numerical predictors using the IQR method
+#  numerical_columns <- data %>% select(where(is.numeric)) %>% names()
+#  
+#  for (col in numerical_columns) {
+#    Q1 <- quantile(data[[col]], 0.25, na.rm = TRUE)
+#    Q3 <- quantile(data[[col]], 0.75, na.rm = TRUE)
+#    IQR <- Q3 - Q1
+#    lower_bound <- Q1 - outlier_factor * IQR
+#    upper_bound <- Q3 + outlier_factor * IQR
+#    data <- data %>% filter(data[[col]] >= lower_bound & data[[col]] <= upper_bound)
+#  }
+#  
+#  # Step 6: Normalize numeric features for scaling
+#  data <- data %>% mutate(across(where(is.numeric), ~ scale(.) %>% as.numeric()))
+#  
+#  # Step 7: Separate target variable
+#  target <- data[[target_variable]]
+#  data <- data %>% select(-all_of(target_variable))
+#  data$target <- target
+#  
+#  return(data)
+#}
 
 # Feature Descriptions:
 # 1. id: This is a unique identifier for each loan listing. Although it's essential for tracking loans, it holds no predictive value 
@@ -406,8 +477,10 @@ LC_Cleaned <- subset(LC_Cleaned, select = -last_credit_pull_d)
 # which is a significant indicator of credit risk. Lenders use this information to assess the borrower’s likelihood of default and adjust the interest rate accordingly.
 # Consclusion:
 # collections_12_mths_ex_med is an important feature for predicting int_rate, as it directly impacts the lender’s risk assessment during the loan origination process.
-LC_Cleaned <- clean_data_for_regression(LC_Cleaned,"collections_12_mths_ex_med")
-LC_Cleaned <- LC_Cleaned[LC_Cleaned$collections_12_mths_ex_med <= 12, ] # Remove values greater than 12, as they are outliers
+#LC_Cleaned$collections_12_mths_ex_med <- factor(LC_Cleaned$collections_12_mths_ex_med)
+LC_Cleaned$collections_12_mths_ex_med <- LC_Cleaned$collections_12_mths_ex_med[is.na(LC_Cleaned$collections_12_mths_ex_med)] <- 0
+LC_Cleaned <- clean_column(LC_Cleaned,"collections_12_mths_ex_med")
+#LC_Cleaned <- LC_Cleaned[LC_Cleaned$collections_12_mths_ex_med <= 12, ] # Remove values greater than 12, as they are outliers
 
 
 # 49. mths_since_last_major_derog: Months since most recent 90-day or worse rating
@@ -416,15 +489,21 @@ LC_Cleaned <- LC_Cleaned[LC_Cleaned$collections_12_mths_ex_med <= 12, ] # Remove
 # Conclusion:
 # A borrower with a recent major derogatory event is seen as a higher risk and will likely face a higher interest rate. On the other hand,
 # borrowers with no recent derogatory marks are seen as less risky, potentially resulting in a lower interest rate.
-LC_Cleaned$mths_since_last_major_derog[is.na(LC_Cleaned$mths_since_last_major_derog)] <- 0 # mths_since_last_major_derog has a lot of missing values NA's (599106), if the borrower has no major deroagatory event the value is NA.
-LC_Cleaned <- clean_data_for_regression(LC_Cleaned,"mths_since_last_major_derog")
+# Replace NA with 0 for 'mths_since_last_major_derog' where missing indicates no derogatory event
+LC_Cleaned$mths_since_last_major_derog[is.na(LC_Cleaned$mths_since_last_major_derog)] <- 0 
+
+# Specify the actual target variable in your regression (for example, 'target_variable_name')
+LC_Cleaned <- clean_column(LC_Cleaned, "mths_since_last_major_derog")
+
 
 
 # 50. policy_code: publicly available policy_code=1, new products not publicly available policy_code=2
 # policy_code might have a moderate influence on int_rate, particularly if different policies or products have different interest rate models
 # Conclusion:
 # the policy code has it's min and max at 1, the 126 data-point which have NA might be relevant.
-LC_Cleaned <- clean_data_for_regression(LC_Cleaned,"policy_code") # 126 NA's might need to be imputed.
+LC_Cleaned <- clean_column(LC_Cleaned,"policy_code") # 126 NA's might need to be imputed.
+
+
 
 
 # 51. application_type: Indicates whether the loan is an individual application or a joint application with two co-borrowers
@@ -435,7 +514,14 @@ LC_Cleaned <- clean_data_for_regression(LC_Cleaned,"policy_code") # 126 NA's mig
 # transforming 'application_type' as numeric factors where:
 # 0 is 'individual' a single borrower applies for the loan.
 # 1 is 'joint' the loan application is made by two co-borrowers, and both incomes, credit profiles, and financial situations are considered.
-LC_Cleaned <- clean_data_for_regression(LC_Cleaned,"application_type")
+
+LC_Cleaned <- LC_Cleaned %>% 
+  filter(LC_Cleaned$application_type == "INDIVIDUAL") %>%
+  select(-c('annual_inc_joint', 'dti_joint', 'verification_status_joint'))
+
+
+
+
 
 # Approach: Option 2 (Exclude Joint Attributes with Business Rules for Joint Applications)
 # Reasoning:
@@ -445,9 +531,8 @@ LC_Cleaned <- clean_data_for_regression(LC_Cleaned,"application_type")
 
 # Train the Model on Individual Applications Only
 # Remove joint-specific features for training
-individual_data <- loan_data %>%
-  filter(application_type == "INDIVIDUAL") %>%
-  select(-c(annual_inc_joint, dti_joint, verification_status_joint))
+
+
 
 
 
