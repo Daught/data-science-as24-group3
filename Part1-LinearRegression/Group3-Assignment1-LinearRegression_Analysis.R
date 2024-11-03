@@ -946,6 +946,7 @@ if(show_plots_flag){
   summary(LC_Cleaned$open_acc_6m)
   summary(LC_Cleaned$open_acc_6m)["NA's"]/total_row_amount
   # ~98% N/A -> Sparse data
+  # All not N/A have the same issue_d Dec-2015
   # Remove column
 }
 
@@ -959,6 +960,7 @@ if(show_plots_flag){
   summary(LC_Cleaned$open_il_6m)
   summary(LC_Cleaned$open_il_6m)["NA's"]/total_row_amount
   # ~98% N/A -> Sparse data
+  # All not N/A have the same issue_d Dec-2015
   # Remove column
 }
 
@@ -972,6 +974,7 @@ if(show_plots_flag){
   summary(LC_Cleaned$open_il_12m)
   summary(LC_Cleaned$open_il_12m)["NA's"]/total_row_amount
   # ~98% N/A -> Sparse data
+  # All not N/A have the same issue_d Dec-2015
   # Remove column
 }
 
@@ -985,6 +988,7 @@ if(show_plots_flag){
   summary(LC_Cleaned$open_il_24m)
   summary(LC_Cleaned$open_il_24m)["NA's"]/total_row_amount
   # ~98% N/A -> Sparse data
+  # All not N/A have the same issue_d Dec-2015
   # Remove column
 }
 
@@ -998,6 +1002,7 @@ if(show_plots_flag){
   summary(LC_Cleaned$mths_since_rcnt_il)
   summary(LC_Cleaned$mths_since_rcnt_il)["NA's"]/total_row_amount
   # ~98% N/A -> Sparse data
+  # All not N/A have the same issue_d Dec-2015
   # Remove column
 }
 
@@ -1011,6 +1016,7 @@ if(show_plots_flag){
   summary(LC_Cleaned$total_bal_il)
   summary(LC_Cleaned$total_bal_il)["NA's"]/total_row_amount
   # ~98% N/A -> Sparse data
+  # All not N/A have the same issue_d Dec-2015
   # Remove column
 }
 
@@ -1024,6 +1030,7 @@ if(show_plots_flag){
   summary(LC_Cleaned$il_util)
   summary(LC_Cleaned$il_util)["NA's"]/total_row_amount
   # ~98% N/A -> Sparse data
+  # All not N/A have the same issue_d Dec-2015
   # Remove column
 }
 
@@ -1037,6 +1044,7 @@ if(show_plots_flag){
   summary(LC_Cleaned$open_rv_12m)
   summary(LC_Cleaned$open_rv_12m)["NA's"]/total_row_amount
   # ~98% N/A -> Sparse data
+  # All not N/A have the same issue_d Dec-2015
   # Remove column
 }
 
@@ -1050,6 +1058,7 @@ if(show_plots_flag){
   summary(LC_Cleaned$open_rv_24m)
   summary(LC_Cleaned$open_rv_24m)["NA's"]/total_row_amount
   # ~98% N/A -> Sparse data
+  # All not N/A have the same issue_d Dec-2015
   # Remove column
 }
 
@@ -1063,6 +1072,7 @@ if(show_plots_flag){
   summary(LC_Cleaned$max_bal_bc)
   summary(LC_Cleaned$max_bal_bc)["NA's"]/total_row_amount
   # ~98% N/A -> Sparse data
+  # All not N/A have the same issue_d Dec-2015
   # Remove column
 }
 
@@ -1076,6 +1086,7 @@ if(show_plots_flag){
   summary(LC_Cleaned$all_util)
   summary(LC_Cleaned$all_util)["NA's"]/total_row_amount
   # ~98% N/A -> Sparse data
+  # All not N/A have the same issue_d Dec-2015
   # Remove column
 }
 
@@ -1089,6 +1100,7 @@ if(show_plots_flag){
   summary(LC_Cleaned$inq_fi)
   summary(LC_Cleaned$inq_fi)["NA's"]/total_row_amount
   # ~98% N/A -> Sparse data
+  # All not N/A have the same issue_d Dec-2015
   # Remove column
 }
 
@@ -1102,6 +1114,7 @@ if(show_plots_flag){
   summary(LC_Cleaned$total_cu_tl)
   summary(LC_Cleaned$total_cu_tl)["NA's"]/total_row_amount
   # ~98% N/A -> Sparse data
+  # All not N/A have the same issue_d Dec-2015
   # Remove column
 }
 
@@ -1115,6 +1128,7 @@ if(show_plots_flag){
   summary(LC_Cleaned$inq_last_12m)
   summary(LC_Cleaned$inq_last_12m)["NA's"]/total_row_amount
   # ~98% N/A -> Sparse data
+  # All not N/A have the same issue_d Dec-2015
   # Remove column
 }
 
