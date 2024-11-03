@@ -885,11 +885,240 @@ LC_Cleaned <- subset(LC_Cleaned, select = -out_prncp)
 LC_Cleaned <- subset(LC_Cleaned, select = -out_prncp_inv)
 
 
+# 55. acc_now_delinq: The number of accounts on which the borrower is now delinquent.
+
+if(show_plots_flag){
+  occurence = table(LC_Cleaned$acc_now_delinq)
+  row_amount = as.integer(count(LC_Cleaned))
+  ratio = table(LC_Cleaned$acc_now_delinq)/row_amount
+  cbind(occurence, ratio)
+  # >99% have 0
+  # Keep column
+}
 
 
+# In the following there is a subset with in exclusively data instances with NA's in tot_cur_bal, tot_coll_amt, total_rev_hi_lim simultaniously.
+# Total 63276 instances.
+# 
+# Following appears:
+# 
+# initial_list_status: f -> with total f of 411144 -> ~15% of it
+# mths_since_last_major_derog: "NA" -> total 599107 NA's -> ~10.5 % of it
+# application_type: INDIVIDUAL -> total 798181 -> 8% of it
+# annual_inc_joint: "NA"
+# dti_joint: "NA"
+# verification_status_joint: empty
+# 
+# The subset does not seem suspicious in other areas. Keep it in mind.
 
 
+# 56. tot_coll_amt: Total collection amounts ever owed.
+# Dropping columns because, it represents the total dollar amount of collections the borrower has accumulated over time.
+# This value indicates the borrower's historical creditworthiness and risk level but is not related to setting an interest rate recommendation.
 
+LC_Cleaned <- subset(LC_Cleaned, select = -tot_coll_amt)
+
+# 57. tot_cur_bal: Total current balance of all accounts.
+# tot_cur_bal represents the total balance currently owed by the borrower across all credit accounts.
+# It’s a snapshot of the borrower’s current debt load and could be useful as a predictor variable in assessing the borrower’s creditworthiness or debt burden.
+
+LC_Cleaned <- subset(LC_Cleaned, select = -tot_cur_bal)
+
+
+# 58. total_rev_hi_lim: Total revolving high credit/credit limit.
+# total_rev_hi_lim represents the maximum available credit limit on revolving accounts (like credit cards) across all of the borrower’s credit lines. 
+# It’s a useful indicator of the borrower’s access to credit but not directly related to the interest rate on a new loan.
+# Remove column
+
+if(show_plots_flag){
+  total_row_amount = as.integer(count(data))
+  summary(LC_Cleaned$total_rev_hi_lim)
+  boxplot(LC_Cleaned$total_rev_hi_lim)
+}
+
+LC_Cleaned <- subset(LC_Cleaned, select = -total_rev_hi_lim)
+
+
+# 59. open_acc_6m: Number of open trades in last 6 months.
+
+if(show_plots_flag){
+  total_row_amount = as.integer(count(data))
+  summary(LC_Cleaned$open_acc_6m)
+  summary(LC_Cleaned$open_acc_6m)["NA's"]/total_row_amount
+  # ~98% N/A -> Sparse data
+  # Remove column
+}
+
+LC_Cleaned <- subset(LC_Cleaned, select = -open_acc_6m)
+
+
+# 60. open_il_6m: Number of currently active installment trades
+
+if(show_plots_flag){
+  total_row_amount = as.integer(count(data))
+  summary(LC_Cleaned$open_il_6m)
+  summary(LC_Cleaned$open_il_6m)["NA's"]/total_row_amount
+  # ~98% N/A -> Sparse data
+  # Remove column
+}
+
+LC_Cleaned <- subset(LC_Cleaned, select = -open_il_6m)
+
+
+# 61. open_il_12m: Number of installment accounts opened in past 12 months
+
+if(show_plots_flag){
+  total_row_amount = as.integer(count(data))
+  summary(LC_Cleaned$open_il_12m)
+  summary(LC_Cleaned$open_il_12m)["NA's"]/total_row_amount
+  # ~98% N/A -> Sparse data
+  # Remove column
+}
+
+LC_Cleaned <- subset(LC_Cleaned, select = -open_il_12m)
+
+
+# 62. open_il_24m: Number of installment accounts opened in past 24 months
+
+if(show_plots_flag){
+  total_row_amount = as.integer(count(data))
+  summary(LC_Cleaned$open_il_24m)
+  summary(LC_Cleaned$open_il_24m)["NA's"]/total_row_amount
+  # ~98% N/A -> Sparse data
+  # Remove column
+}
+
+LC_Cleaned <- subset(LC_Cleaned, select = -open_il_24m)
+
+
+# 63. mths_since_rcnt_il: Months since most recent installment accounts opened
+
+if(show_plots_flag){
+  total_row_amount = as.integer(count(data))
+  summary(LC_Cleaned$mths_since_rcnt_il)
+  summary(LC_Cleaned$mths_since_rcnt_il)["NA's"]/total_row_amount
+  # ~98% N/A -> Sparse data
+  # Remove column
+}
+
+LC_Cleaned <- subset(LC_Cleaned, select = -mths_since_rcnt_il)
+
+
+# 64. total_bal_il: Total current balance of all installment accounts
+
+if(show_plots_flag){
+  total_row_amount = as.integer(count(data))
+  summary(LC_Cleaned$total_bal_il)
+  summary(LC_Cleaned$total_bal_il)["NA's"]/total_row_amount
+  # ~98% N/A -> Sparse data
+  # Remove column
+}
+
+LC_Cleaned <- subset(LC_Cleaned, select = -total_bal_il)
+
+
+# 65. il_util: Ratio of total current balance to high credit/credit limit on all install acct
+
+if(show_plots_flag){
+  total_row_amount = as.integer(count(data))
+  summary(LC_Cleaned$il_util)
+  summary(LC_Cleaned$il_util)["NA's"]/total_row_amount
+  # ~98% N/A -> Sparse data
+  # Remove column
+}
+
+LC_Cleaned <- subset(LC_Cleaned, select = -il_util)
+
+
+# 66. open_rv_12m: Number of revolving trades opened in past 12 months.
+
+if(show_plots_flag){
+  total_row_amount = as.integer(count(data))
+  summary(LC_Cleaned$open_rv_12m)
+  summary(LC_Cleaned$open_rv_12m)["NA's"]/total_row_amount
+  # ~98% N/A -> Sparse data
+  # Remove column
+}
+
+LC_Cleaned <- subset(LC_Cleaned, select = -open_rv_12m)
+
+
+# 67. open_rv_24m: Number of revolving trades opened in past 24 months.
+
+if(show_plots_flag){
+  total_row_amount = as.integer(count(data))
+  summary(LC_Cleaned$open_rv_24m)
+  summary(LC_Cleaned$open_rv_24m)["NA's"]/total_row_amount
+  # ~98% N/A -> Sparse data
+  # Remove column
+}
+
+LC_Cleaned <- subset(LC_Cleaned, select = -open_rv_24m)
+
+
+# 68. max_bal_bc: Maximum current balance owed on all revolving accounts.
+
+if(show_plots_flag){
+  total_row_amount = as.integer(count(data))
+  summary(LC_Cleaned$max_bal_bc)
+  summary(LC_Cleaned$max_bal_bc)["NA's"]/total_row_amount
+  # ~98% N/A -> Sparse data
+  # Remove column
+}
+
+LC_Cleaned <- subset(LC_Cleaned, select = -max_bal_bc)
+
+
+# 69. all_util: Balance to credit limit on all trades.
+
+if(show_plots_flag){
+  total_row_amount = as.integer(count(data))
+  summary(LC_Cleaned$all_util)
+  summary(LC_Cleaned$all_util)["NA's"]/total_row_amount
+  # ~98% N/A -> Sparse data
+  # Remove column
+}
+
+LC_Cleaned <- subset(LC_Cleaned, select = -all_util)
+
+
+# 70. inq_fi: Number of personal finance inquiries.
+
+if(show_plots_flag){
+  total_row_amount = as.integer(count(data))
+  summary(LC_Cleaned$inq_fi)
+  summary(LC_Cleaned$inq_fi)["NA's"]/total_row_amount
+  # ~98% N/A -> Sparse data
+  # Remove column
+}
+
+LC_Cleaned <- subset(LC_Cleaned, select = -inq_fi)
+
+
+# 71. total_cu_tl: Number of finance trades.
+
+if(show_plots_flag){
+  total_row_amount = as.integer(count(data))
+  summary(LC_Cleaned$total_cu_tl)
+  summary(LC_Cleaned$total_cu_tl)["NA's"]/total_row_amount
+  # ~98% N/A -> Sparse data
+  # Remove column
+}
+
+LC_Cleaned <- subset(LC_Cleaned, select = -total_cu_tl)
+
+
+# 72. inq_last_12m: Number of credit inquiries in past 12 months.
+
+if(show_plots_flag){
+  total_row_amount = as.integer(count(data))
+  summary(LC_Cleaned$inq_last_12m)
+  summary(LC_Cleaned$inq_last_12m)["NA's"]/total_row_amount
+  # ~98% N/A -> Sparse data
+  # Remove column
+}
+
+LC_Cleaned <- subset(LC_Cleaned, select = -inq_last_12m)
 
 
 
