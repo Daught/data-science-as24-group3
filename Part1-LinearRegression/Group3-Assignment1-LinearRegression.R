@@ -177,16 +177,13 @@ LC_Cleaned <- subset(LC_Cleaned, select = -emp_length)
 # 11. home_ownership: Indicates whether the borrower owns, rents, or has a mortgage on their home.
 #     Convert this to an ordered set of integers and create dummy columns for categorical analysis.
 #     We have 47 missing values.. to OTHER? Or shall we drop them? only
-# TODO-Firat: add NA's to Other
+
+# these values are assigned to Other (Other is unclear as well.)
+# Replace "ANY" and "NONE" with "OTHER" in the home_ownership column
+LC_Cleaned$home_ownership[LC_Cleaned$home_ownership %in% c("ANY", "NONE")] <- "OTHER"
 
 # Convert 'home_ownership' to ordered integer
 LC_Cleaned$home_ownership <- as.integer(ordered(LC_Cleaned$home_ownership, levels = c("OTHER", "RENT", "MORTGAGE", "OWN")))
-
-sum(is.na(LC_Cleaned$home_ownership))  # Looking for missing values
-# Drop rows with missing values in 'home_ownership'
-filter(LC_Cleaned, is.na(LC_Cleaned$home_ownership))
-LC_Cleaned <- filter(LC_Cleaned, !is.na(LC_Cleaned$home_ownership))
-filter(LC_Cleaned, is.na(LC_Cleaned$home_ownership))
 
 # Create dummy columns for 'home_ownership'
 LC_Cleaned <- dummy_columns(LC_Cleaned, select_columns = "home_ownership", remove_selected_columns = TRUE)
@@ -196,10 +193,12 @@ LC_Cleaned <- dummy_columns(LC_Cleaned, select_columns = "home_ownership", remov
 #     Convert from string to integer, check for missing, zero, or extreme values, and handle any income outliers.
 
 # TODO-Firat: might be impactfull feature, might need some adjustments
-
+# Remove NA values
+LC_Cleaned <- filter(LC_Cleaned, !is.na(annual_inc))
+# Remove rows with negative values in 'annual_inc'
+LC_Cleaned <- filter(LC_Cleaned, annual_inc >= 0)
 # Convert 'annual_inc' to integer
-# Firat check: LC_Cleaned <- filter(LC_Cleaned, !is.na(annual_inc))
-# Firat check: LC_Cleaned$annual_inc <- as.integer(LC_Cleaned$annual_inc)
+LC_Cleaned$annual_inc <- as.integer(LC_Cleaned$annual_inc)
 
 
 # 13. verification_status: Indicates whether the borrower’s income has been verified.
