@@ -262,7 +262,7 @@ length(unique(LC_Cleaned$title)) # 57719
 LC_Cleaned$title <- tolower(LC_Cleaned$title)
 # Remove all whitespace
 LC_Cleaned$title <- gsub(" ", "", LC_Cleaned$title)
-length(unique(mh_df$title)) # from 57719 to 48722 unique values, but still!!!
+length(unique(LC_Cleaned$title)) # from 57719 to 48722 unique values, but still!!!
 # As it contains similar information to 'purpose' in free text and thus harder to analyze format we will drop this.
 LC_Cleaned <- subset(LC_Cleaned, select = -title)
 
@@ -373,7 +373,6 @@ min_value_to_find <- 0
 row_indices_min <- which(LC_Cleaned$dti == min_value_to_find)
 # Display the rows with this value
 data_with_min_value <- LC_Cleaned[row_indices_min, ]
-print(data_with_value)
 
 # Display the rows with this dti value and retrieve only the application_type column
 application_types_with_low_dti <- LC_Cleaned[row_indices_min, "application_type"]
@@ -672,7 +671,7 @@ LC_Cleaned <- subset(LC_Cleaned, select = -last_credit_pull_d)
 # Consclusion:
 # collections_12_mths_ex_med is an important feature for predicting int_rate, as it directly impacts the lender’s risk assessment during the loan origination process.
 #LC_Cleaned$collections_12_mths_ex_med <- factor(LC_Cleaned$collections_12_mths_ex_med)
-LC_Cleaned$collections_12_mths_ex_med <- LC_Cleaned$collections_12_mths_ex_med[is.na(LC_Cleaned$collections_12_mths_ex_med)] <- 0
+LC_Cleaned$collections_12_mths_ex_med[is.na(LC_Cleaned$collections_12_mths_ex_med)] <- 0
 LC_Cleaned <- clean_column(LC_Cleaned,"collections_12_mths_ex_med")
 
 
@@ -790,9 +789,21 @@ LC_Cleaned <- subset(LC_Cleaned, select = -total_cu_tl)
 # 72. inq_last_12m: Number of credit inquiries in past 12 months.
 LC_Cleaned <- subset(LC_Cleaned, select = -inq_last_12m)
 
+##############   Step 3 - Corr   ##########################
+# Load required package
+library(corrplot)
+
+# Select numeric columns
+numeric_data <- LC_Cleaned %>% select_if(is.numeric)
+
+# Calculate correlation matrix
+correlation_matrix <- cor(numeric_data)
+
+# Plot the correlation matrix
+corrplot(correlation_matrix, method = "color", type = "upper", tl.col = "black", tl.srt = 45)
 
 
-##############   Step 3 - Prediction Task   ##########################
+##############   Step 4 - Prediction Task   ##########################
 
 
 
@@ -804,7 +815,7 @@ LC_Cleaned$predicted_int_rate <- predict(model, newdata = LC_Cleaned)
 
 
 
-##############   Step 4 - Post-Processing (apply business rules)   ##########################
+##############   Step 5 - Post-Processing (apply business rules)   ##########################
 
 # Apply business rules for joint applications
 LC_Cleaned <- LC_Cleaned %>%
