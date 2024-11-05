@@ -5,11 +5,11 @@ library(ggplot2)
 Sys.setlocale("LC_TIME", "C") # or use "en_US.UTF-8" for Unix systems
 
 
-data <- read.csv("Part1-LinearRegression/ressources/LCdata.csv", sep = ";")
+data <- read.csv("/home/selun/Dokumente/Sync/Master/03_Semester/DataScience/Assignment/data-science-as24-group3/Part1-LinearRegression/ressources/LCdata.csv", sep = ";")
 
 df <- data
 
-columns_to_keep <- c(7, 14, 19:36)
+columns_to_keep <- c(7, 19:36)
 mh_df <- data[, columns_to_keep]
 
 # Investigate the new dataframe
@@ -17,7 +17,6 @@ str(mh_df)
 
 ## Columns kept incl. former indices and description
 # 7  $ int_rate ... Interest Rate on the loan
-# 14 $ issue_d ... The month which the loan was funded.
 # 19 $ purpose ... A category provided by the borrower for the loan request.
 # 20 $ title ... The loan title provided by the borrower.
 # 21 $ zip_code ... The first 3 numbers of the zip code provided by the borrower in the loan application.
@@ -44,7 +43,7 @@ unique(mh_df$purpose) # "other", "debt_consolidation", "moving", "credit_card", 
 mh_df$purpose <- tolower(mh_df$purpose)
 length(unique(mh_df$purpose)) # 14 unique values
 sum(is.na(mh_df$purpose)) # no missing values
-# Change to unordered factor
+
 mh_df$purpose <- factor(mh_df$purpose)
 summary(mh_df$purpose)
 # car        credit_card     debt_consolidation        educational   home_improvement           house     major_purchase 
@@ -413,36 +412,6 @@ head(mh_df)
 mh_df$earliest_cr_line_date_year <- as.numeric(format(mh_df$earliest_cr_line_date, "%Y"))
 mh_df$earliest_cr_line_date_month <- as.numeric(format(mh_df$earliest_cr_line_date, "%m"))
 sum(is.na(mh_df$earliest_cr_line_date))
-
-## Calculate credit line length according to issue day
-
-# Replace empty strings with NA
-mh_df$earliest_cr_line[mh_df$earliest_cr_line == ""] <- NA
-mh_df$issue_d[mh_df$issue_d == ""] <- NA
-
-# Convert to Date format by adding "01-" to represent the first day of the month
-mh_df$earliest_cr_line_date <- as.Date(paste0("01-", mh_df$earliest_cr_line), format = "%d-%b-%Y")
-# Convert issue_d to Date format by assuming the first day of the month
-mh_df$issue_d_date <- as.Date(paste0("01-", mh_df$issue_d), format = "%d-%b-%Y")
-
-# Calculate the age of the credit line at the loan funding date in years
-mh_df$credit_line_age_at_issue <- as.numeric(difftime(mh_df$issue_d_date, mh_df$earliest_cr_line_date, units = "days")) / 365.25
-
-
-## Now we created a new column $credit_line_age_at_issue (num)
-
-# Plot target to credit_line_age_at_issue
-boxplot(int_rate ~ credit_line_age_at_issue, 
-        data = mh_df,
-        main = "Box Plot of Interest Rate by credit_line_age_at_issue",
-        xlab = "Investigated Column",
-        ylab = "credit_line_age_at_issue",
-        col = "lightblue",
-        border = "black",
-        las = 2,  # Rotate x-axis labels for readability
-        cex.axis = 0.7) # Adjust label size if needed
-
-# Correlation of -0.1164509 ... not impressive
 
 ################################## At the moment keep it for further investigation. As multiple NAs in other columns maybe drop the NA-rows
 
