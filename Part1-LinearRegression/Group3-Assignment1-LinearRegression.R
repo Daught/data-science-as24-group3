@@ -55,7 +55,7 @@ summary(LC)
 
 ##############   Step 2 - Data Preprocessing   ##########################
 
-clean_column <- function(data, column_name, k = 5, outlier_factor = 1.5, is_ordered_factor = FALSE) {
+clean_column <- function(data, column_name, k = 5, outlier_factor = 1.5, is_ordered_factor = FALSE, remove_outliers=TRUE) {
   
  # Step 1: Remove rows with missing values in the specified column only
   data <- data[!is.na(data[[column_name]]), ]
@@ -87,7 +87,7 @@ clean_column <- function(data, column_name, k = 5, outlier_factor = 1.5, is_orde
   }
   
   # Step 5: Remove outliers in the specified column only if it is numeric
-  if (is.numeric(data[[column_name]])) {
+  if (remove_outliers && is.numeric(data[[column_name]])) {
     Q1 <- quantile(data[[column_name]], 0.25, na.rm = TRUE)
     Q3 <- quantile(data[[column_name]], 0.75, na.rm = TRUE)
     IQR <- Q3 - Q1
@@ -242,106 +242,357 @@ LC_Cleaned <- subset(LC_Cleaned, select = -desc)
 
 
 # 19. 'purpose': A category provided by the borrower for the loan request.
+# Investigate $purpose, (character)
+str(LC_Cleaned$purpose)
+unique(LC_Cleaned$purpose) # "other", "debt_consolidation", "moving", "credit_card", "home_improvement", "major_purchase", "wedding", "small_business", "medical", "car", "educational", "vacation", "house", "renewable_energy"
+length(unique(LC_Cleaned$purpose)) # 14 unique values
 LC_Cleaned$purpose <- tolower(LC_Cleaned$purpose) # Convert all characters in the column to lowercase
+# Make sure that there are no empty strings
+sum(LC_Cleaned$purpose == "") # 0
+sum(LC_Cleaned$purpose == " ") # 0
 LC_Cleaned$purpose <- factor(LC_Cleaned$purpose) # Change to unordered factor
-
+sum(is.na(LC_Cleaned$purpose)) # no missing values
 
 # 20. 'title': The loan title provided by the borrower.
-counts <- table(LC_Cleaned$zip_code)
-sorted_value_counts <- sort(counts, decreasing = TRUE)
-top_three_values <- names(sorted_value_counts)[1:3] # Identify the two most frequent values
-# Create a new column with grouped categories
-LC_Cleaned$grouped_title <- ifelse(LC_Cleaned$title %in% top_three_values,  LC_Cleaned$title, "Other")
-LC_Cleaned$grouped_title <- factor(LC_Cleaned$grouped_title) # Change to factor
-LC_Cleaned <- subset(LC_Cleaned, select = -title) # remove the original column
-
+# Investigate $title, (character)
+str(LC_Cleaned$title) # character
+unique(LC_Cleaned$title)
+length(unique(LC_Cleaned$title)) # 57719
+# To lower case
+LC_Cleaned$title <- tolower(LC_Cleaned$title)
+# Remove all whitespace
+LC_Cleaned$title <- gsub(" ", "", LC_Cleaned$title)
+length(unique(mh_df$title)) # from 57719 to 48722 unique values, but still!!!
+# As it contains similar information to 'purpose' in free text and thus harder to analyze format we will drop this.
+LC_Cleaned <- subset(LC_Cleaned, select = -title)
 
 # 21. 'zip_code': The first 3 numbers of the zip code provided by the borrower in the loan application.
 
 # TODO-MHA: gsub only the (first, second) number --> make categorical
+str(LC_Cleaned$zip_code)
+unique(LC_Cleaned$zip_code) # e.g.: "806xx" "100xx" "665xx" "068xx" "300xx"
 LC_Cleaned$zip_code <- gsub("xx", "", LC_Cleaned$zip_code) # Remove 'xx'
+# Extract the first two characters of each zip code
+LC_Cleaned$zip_code <- substr(LC_Cleaned$zip_code, 1, 2)
+length(unique(LC_Cleaned$zip_code)) # 100
+sum(LC_Cleaned$zip_code == "00") # 0
+sum(is.na(LC_Cleaned$zip_code)) # no missing values
 
-# dropped zip_code as redundant information with the feature addr_state
+# As more reducing does not make sense (too big and not necessarily logical connected areas with only 2 digits) we will drop it and use 'addr_state' instead
 LC_Cleaned <- subset(LC_Cleaned, select = -zip_code)
 
 # 22. 'addr_state': The state provided by the borrower in the loan application.
-LC_Cleaned$addr_state <- factor(LC_Cleaned$addr_state) # Change to factor
+
+unique(LC_Cleaned$addr_state) # e.g.: ""CO" "NY" "KS" "CT" "GA" "MO" "SD" "FL" "OK" "IN" "PA" "OR" "OH" "TX" "WV" "NM""
+length(unique(LC_Cleaned$addr_state)) # 51 but only 50 states??? DC is included as an extra state
+sum(is.na(LC_Cleaned$addr_state)) # no missing values
+table(LC_Cleaned$addr_state)
+# Count and sort the values
+counts <- table(LC_Cleaned$addr_state)
+sorted_value_counts <- sort(counts, decreasing = TRUE)
+print(sorted_value_counts)
+# Look for empty strings
+sum(LC_Cleaned$addr_state == "") # 0
+sum(LC_Cleaned$addr_state == " ") # 0
+
+# As 51 states handling as a factor is no option. We will map it per region in the US according to this map 
+# (https://stock.adobe.com/fr/images/united-states-geographic-regions-colored-political-map-five-regions-according-to-their-geographic-position-on-the-continent-common-but-unofficial-way-of-referring-to-regions-of-the-united-states/514824675)
+# Define the mapping of state abbreviations to regions as a named vector
+state_to_region <- c(
+  'AL' = 'Southeast', 'AK' = 'West', 'AZ' = 'Southwest', 'AR' = 'Southeast',
+  'CA' = 'West', 'CO' = 'West', 'CT' = 'Northeast', 'DE' = 'Northeast',
+  'DC' = 'Northeast', 'FL' = 'Southeast', 'GA' = 'Southeast', 'HI' = 'West',
+  'ID' = 'West', 'IL' = 'Midwest', 'IN' = 'Midwest', 'IA' = 'Midwest',
+  'KS' = 'Midwest', 'KY' = 'Southeast', 'LA' = 'Southeast', 'ME' = 'Northeast',
+  'MD' = 'Northeast', 'MA' = 'Northeast', 'MI' = 'Midwest', 'MN' = 'Midwest',
+  'MS' = 'Southeast', 'MO' = 'Midwest', 'MT' = 'West', 'NE' = 'Midwest',
+  'NV' = 'West', 'NH' = 'Northeast', 'NJ' = 'Northeast', 'NM' = 'Southwest',
+  'NY' = 'Northeast', 'NC' = 'Southeast', 'ND' = 'Midwest', 'OH' = 'Midwest',
+  'OK' = 'Southwest', 'OR' = 'West', 'PA' = 'Northeast', 'RI' = 'Northeast',
+  'SC' = 'Southeast', 'SD' = 'Midwest', 'TN' = 'Southeast', 'TX' = 'Southwest',
+  'UT' = 'West', 'VT' = 'Northeast', 'VA' = 'Southeast', 'WA' = 'West',
+  'WV' = 'Southeast', 'WI' = 'Midwest', 'WY' = 'West'
+)
+
+# Remove any leading/trailing whitespace from addr_state
+LC_Cleaned$addr_state <- trimws(LC_Cleaned$addr_state)
+
+# Create a new column 'region' by mapping each state to its region
+LC_Cleaned$region <- state_to_region[LC_Cleaned$addr_state]
+
+# Verify the result
+table(LC_Cleaned$region)
+LC_Cleaned$region <- factor(LC_Cleaned$region) # Change to factor
+# Be sure there are no NAs
+sum(is.na(LC_Cleaned$addr_state)) # no missing values
+
+# Drop addr_state column as we will 'region' instead
+LC_Cleaned <- subset(LC_Cleaned, select = -addr_state)
 
 
 # 23. 'dti': A ratio calculated using the borrower’s total monthly debt payments on the total debt obligations, 
 # excluding mortgage and the requested LC loan, divided by the borrower’s self-reported monthly income.
-filtered_data <- LC_Cleaned$dti[LC_Cleaned$dti < 150]
+# A lower DTI generally indicates a more manageable debt load relative to income, suggesting the borrower is less risky.
+# A higher DTI suggests a higher burden of debt relative to income, which may indicate greater financial strain or risk.
+## This needs to be differentiated with application type ("INDIVIDUAL" --> "dti" and "JOINT" --> "dti_joint")
+str(LC_Cleaned$dti)
+unique(LC_Cleaned$dti)
+# Handle empty strings, if there are some
+LC_Cleaned$dti[LC_Cleaned$annual_inc == ""] <- NA
+sum(is.na(LC_Cleaned$dti))
+# Change to number
+LC_Cleaned$dti <- as.numeric(LC_Cleaned$dti)
+summary(LC_Cleaned$dti)
+# Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+# 0.00   11.91   17.66   18.16   23.95 9999.00
+
+# Find the maximum value
+max_value <- max(LC_Cleaned$dti, na.rm = TRUE)
+
+# Check how many times the maximum value occurs
+max_count <- sum(LC_Cleaned$dti == max_value)
+print(max_count)  # 2
+
+# There are 2 values with 9999.00 --> look for there rows (duplicates??)
+
+# Define the value you are looking for
+max_value_to_find <- 150
+# Find the row indices where dti is greater than the value
+row_indices_max <- which(LC_Cleaned$dti > max_value_to_find)
+# Display the rows with this value
+data_with_max_value <- LC_Cleaned[row_indices_max, ]
+print(data_with_max_value) # no duplicates, but annual-inc 0, both are application_type "JOINT" and have annual_inc_joint 185000 resp. 40988
+# Display the rows with this dti value and retrieve only the application_type column
+application_types_with_high_dti <- LC_Cleaned[row_indices_max, "application_type"]
+# Print the application_type values for these rows
+print(application_types_with_high_dti)
+
+# Same for very low values
+min_value_to_find <- 0
+# Find the row indices where column_num equals the value
+row_indices_min <- which(LC_Cleaned$dti == min_value_to_find)
+# Display the rows with this value
+data_with_min_value <- LC_Cleaned[row_indices_min, ]
+print(data_with_value)
+
+# Display the rows with this dti value and retrieve only the application_type column
+application_types_with_low_dti <- LC_Cleaned[row_indices_min, "application_type"]
+# Print the application_type values for these rows
+print(application_types_with_low_dti)
 
 
 # 24. 'delinq_2yrs': The number of 30+ days past-due incidences of delinquency in the borrower's credit file for the past 2 years.
-# TODO: MHA: please check again regarding NA's (odd that it only has 25...)
+# TODO: MHA: please check again regarding NA's (odd that it only has 25...) CHECK: NAs: 21 --> imputed 0 for them.
+# Investigate $delinq_2yrs (integer)
+summary(LC_Cleaned$delinq_2yrs)
+unique(LC_Cleaned$delinq_2yrs)
+sum(is.na(LC_Cleaned$delinq_2yrs)) # 21 NAs
+# Calculate the frequency of each unique value in delinq_2yrs and sort by frequency
+delinq_counts <- sort(table(LC_Cleaned$delinq_2yrs), decreasing = TRUE)
+# Display the result
+print(delinq_counts)
 
-
+# Find the row indices where NAs are
+NA_indices_delinq_2yrs <- which(is.na(LC_Cleaned$delinq_2yrs))
+# Display the rows with NAs
+delinq_2yrs_with_NAvalue <- LC_Cleaned[NA_indices_delinq_2yrs, ]
+print(delinq_2yrs_with_NAvalue) # multiple NA-columns
+# Display the rows with 'delinq_2yrs'NAs and retrieve only the application_type column
+application_types_delinq_2yrs_with_NAvalue <- LC_Cleaned[NA_indices_delinq_2yrs, "application_type"]
+print(application_types_delinq_2yrs_with_NAvalue) # Only 'INDIVIDUAL' applications
+  
+# Find application types of values over 0
+delinq_2yrs_present <- 0
+# Find the row indices where 'delinq_2yrs' is over 0
+row_delinq_2yrs_present <- which(LC_Cleaned$delinq_2yrs > delinq_2yrs_present)
+# Display the rows with this value
+data_with_delinq_2yrs_present <- LC_Cleaned[row_delinq_2yrs_present, ]
+print(data_with_delinq_2yrs_present) #
+# Display the rows with this 'delinq_2yrs' value and retrieve only the application_type column
+application_types_delinq_2yrs_present <- LC_Cleaned[row_delinq_2yrs_present, "application_type"]
+# Print the application_type values for these rows
+print(application_types_delinq_2yrs_present)
+unique(application_types_delinq_2yrs_present)
+table(application_types_delinq_2yrs_present)
+  # INDIVIDUAL      JOINT 
+  #    153351        103
+  # A separation of 'INDIVIDUAL' and 'JOINT' and merging makes sense here as well
+  
+# Impute NA values in delinq_2yrs with 0
+LC_Cleaned$delinq_2yrs[is.na(LC_Cleaned$delinq_2yrs)] <- 0
 
 # 25. 'earliest_cr_line': The month the borrower's earliest reported credit line was opened.
 
-# Remove all blank spaces from the values in the column so that NAs are clearly seen
-LC_Cleaned$earliest_cr_line <- gsub(" ", "", LC_Cleaned$earliest_cr_line)
-# Replace any empty strings (values with no content) with NA
-LC_Cleaned$earliest_cr_line[LC_Cleaned$earliest_cr_line == ""] <- NA
-LC_Cleaned$earliest_cr_line <- factor(LC_Cleaned$earliest_cr_line) # Change to factor
+# Remove any leading or trailing whitespace and any non-printing characters
+LC_Cleaned$earliest_cr_line <- trimws(LC_Cleaned$earliest_cr_line)
+LC_Cleaned$earliest_cr_line <- gsub("[^[:print:]]", "", LC_Cleaned$earliest_cr_line)
 
-# TODO MHA: --> timestamping
+# Set locale to English for date conversion to be sure date-conversion is working
+Sys.setlocale("LC_TIME", "C")  # "C" is used for the default English locale
+
+# Replace any empty strings with NA
+LC_Cleaned$earliest_cr_line[LC_Cleaned$earliest_cr_line == ""] <- NA
+sum(is.na(LC_Cleaned$earliest_cr_line)) # 25 NAs
+str(LC_Cleaned$earliest_cr_line)
+# Convert earliest_cr_line from "Mon-YYYY" to Date format, assuming the first day of the month
+LC_Cleaned$earliest_cr_line_date <- as.Date(paste0("01-", LC_Cleaned$earliest_cr_line), format = "%d-%b-%Y")
+
+# Display the rows to be sure this worked correctly
+head(LC_Cleaned[, c("earliest_cr_line", "earliest_cr_line_date")], 10)
+
+# Conversion to character and then numerical for analysis
+LC_Cleaned$earliest_cr_line_char <- format(LC_Cleaned$earliest_cr_line_date, "%Y%m")
+LC_Cleaned$earliest_cr_line_numeric <- as.numeric(LC_Cleaned$earliest_cr_line_char)
+
+# Display the first few rows to verify
+head(LC_Cleaned[, c("earliest_cr_line_date", "earliest_cr_line_char", "earliest_cr_line_numeric")], 10)
+
+# Remove the last two digits by dividing by 100 and taking the integer part to get only the year
+LC_Cleaned$earliest_cr_line_year <- LC_Cleaned$earliest_cr_line_numeric %/% 100
+
+summary(LC_Cleaned$earliest_cr_line_numeric)
+summary(LC_Cleaned$earliest_cr_line_year)
+
+# Drop rows with NA in the 'earliest_cr_line_numeric' column
+LC_Cleaned <- LC_Cleaned[!is.na(LC_Cleaned$earliest_cr_line_numeric), ]
 
 
 # 26. 'inq_last_6mths': The number of inquiries in past 6 months (excluding auto and mortgage inquiries)data.frame(..., row.names = NULL, check.rows = FALSE, check.names = TRUE, stringsAsFactors = default.stringsAsFactors())
-
-# 25 NA's
+summary(LC_Cleaned$inq_last_6mths) #    Min. 1st Qu.  Median    Mean 3rd Qu.    Max.    NA's 
+#                                     0.0000  0.0000  0.0000  0.6947  1.0000 33.0000      25 
+unique(LC_Cleaned$inq_last_6mths) # e.g.: NA  0  1  4  2  3  5 
+sum(is.na(LC_Cleaned$inq_last_6mths)) #  25 NAs on original dataset, same rows as NAs already dropped from earliest_cr_line
 
 
 # 27. mths_since_last_delinq ... The number of months since the borrower's last delinquency.
+# A value of 12 would indicate that the borrower’s last delinquency was 12 months ago (one year).
+# A value of 0 would indicate that a delinquency occurred within the current month.
 
-# 408818 NA
+summary(LC_Cleaned$mths_since_last_delinq)
+unique(LC_Cleaned$mths_since_last_delinq) # e.g.: NA   0  66  62  28  37  78   8  23  44 
+sum(is.na(LC_Cleaned$mths_since_last_delinq)) #  408818 NA
+  
+# We will impute NAs with a very high number as low numbers indicate more risk for the lender.
+# Replace NA values with 999
+LC_Cleaned$mths_since_last_delinq[is.na(LC_Cleaned$mths_since_last_delinq)] <- 999
+sum(is.na(LC_Cleaned$mths_since_last_delinq)) # 0
 
 
 # 28. mths_since_last_record ... The number of months since the last public record.
+# A specific number (e.g., 12) means the last public record was 12 months ago.
+# A 0 indicates a public record within the current month
 
-#  675190 NA
+str(LC_Cleaned$mths_since_last_record)
+unique(LC_Cleaned$mths_since_last_record) # e.g.: NA   0  95 111  57  76 102 115  54 106  86  19  61   
+sum(is.na(LC_Cleaned$mths_since_last_record)) #  675190 NA
+summary(LC_Cleaned$mths_since_last_record)
+  
+# As NA normally indicates no public record history we impute with a very high number
+LC_Cleaned$mths_since_last_record[is.na(LC_Cleaned$mths_since_last_record)] <- 999
+sum(is.na(LC_Cleaned$mths_since_last_record)) # 0
 
-
-
-# Replace NA's with 0, as no public record available
-LC_Cleaned$mths_since_last_record[is.na(LC_Cleaned$mths_since_last_record)] <- 0
 
 # 29. open_acc ... The number of open credit lines in the borrower's credit file.
-#  25 NA
+# A value of 5 means the borrower has five open lines of credit. --> higher risk
+# A value of 0 indicates that the borrower currently has no active lines of credit. --> lower risk
+# Is it possible that there are people with 90 lines of credit open?
+
+# Investigate $open_acc (int)
+summary(LC_Cleaned$open_acc)
+unique(LC_Cleaned$open_acc) # e.g.: NA  7  9  8  5 12  4 17 10 13 11   
+sum(is.na(LC_Cleaned$open_acc)) #  25 NA, disappeared as NAs were dropped before
 
 
-# 30. pub_rec ... Number of derogatory public records.
-#  25 NA
+# 30. pub_rec ... Number of derogatory public records. Derogatory public records are negative financial events that are publicly accessible and can significantly impact a borrower’s creditworthiness.
+# A value of 0 means the borrower has no derogatory public records in their credit file.
+# A value of 1 or higher indicates the number of derogatory public records recorded against the borrower.
+# Higher values suggest a history of multiple financial issues
+
+summary(LC_Cleaned$pub_rec)
+unique(LC_Cleaned$pub_rec) # e.g.: NA  0  1  2  3  5  9    
+sum(is.na(LC_Cleaned$pub_rec)) #  25 NA, disappeared after deleting NA rows before
 
 
 # 31. revol_bal ... Total credit revolving balance.
-#  2 NA
+# A high revol_bal could indicate a borrower is utilizing a lot of available revolving credit, potentially signaling a higher risk if they are close to maxing out their credit limits.
+# A low or zero revol_bal shows minimal use of revolving credit, which can be favorable, though some utilization is typically seen positively as it shows credit activity.
+## This needs NA handling. Drop rows? Impute with 0 or mean or knn. By now the NAs will be filled with 0
 
+summary(LC_Cleaned$revol_bal)
+unique(LC_Cleaned$revol_bal) # e.g.: 0 150786  11608   9204   5046   6360  16842   4429 (>70445)    
+sum(is.na(LC_Cleaned$revol_bal)) #  2 NA
+# Find the row indices NAs
+column_to_search <- LC_Cleaned$revol_bal
+NA_indices <- which(is.na(column_to_search))
+# Display the rows with NAs
+data_with_NAvalue <- LC_Cleaned[NA_indices, ]
+print(data_with_NAvalue)
+# Replace NA values with 0
+LC_Cleaned$revol_bal[is.na(LC_Cleaned$revol_bal)] <- 0
+sum(is.na(LC_Cleaned$revol_bal))
 
-# 32. revol_util ... Revolving line utilization rate, or the amount of credit the borrower is using relative to all available revolving credit. # nolint
+# 32. revol_util ... Revolving line utilization rate, or the amount of credit the borrower is using relative to all available revolving credit.
+# A low revol_util (e.g., 0-30%) indicates that the borrower is using a small portion of their available credit, which is generally seen positively in credit scoring.
+# A high revol_util (e.g., > 50%) suggests that the borrower is utilizing a large amount of their credit limit, which can indicate higher risk.
+# 100% or higher means the borrower has maxed out or exceeded their credit limit, which can be a significant risk factor.
+## This needs NA handling. Drop rows? Impute with 0 or mean or knn. By now the NAs will be filled with 0
 
-#  454 NA
+summary(LC_Cleaned$revol_util)
+# Handle empty strings
+LC_Cleaned$revol_util[LC_Cleaned$revol_util == ""] <- NA
+sum(is.na(LC_Cleaned$revol_util))
+# Transform to integer
+LC_Cleaned$revol_util <- as.integer(LC_Cleaned$revol_util)
+summary(LC_Cleaned$revol_util)
+unique(LC_Cleaned$revol_util) # e.g.: NA   2.20  56.90  29.30  19.90  25.00    
+sum(is.na(LC_Cleaned$revol_util)) #  454 NA, changed to 429 as rows already were dropped
+# Find the row indices NAs
+column_to_search <- LC_Cleaned$revol_util
+NA_indices <- which(is.na(column_to_search))
+# Display the rows with NAs
+data_with_NAvalue <- LC_Cleaned[NA_indices, ]
+print(data_with_NAvalue)
+  
+# Replace NA values with 0
+LC_Cleaned$revol_util[is.na(LC_Cleaned$revol_util)] <- 0
+sum(is.na(LC_Cleaned$revol_util))
+
 
 # 33. total_acc ... The total number of credit lines currently in the borrower's credit file.
+# A specific number in total_acc indicates the total number of accounts that have ever been opened in the borrower’s name.
+# For example, a value of 10 means the borrower has opened ten credit accounts over time, regardless of whether they are currently open or closed.
+# This could indicate a higher experience with credit, which could be positive.
 
-#  25 NA 
+# Investigate $total_acc (int)
+summary(LC_Cleaned$total_acc)
+unique(LC_Cleaned$total_acc) # e.g.: NA  16  19  43  28  20  35  33  26     
+sum(is.na(LC_Cleaned$total_acc)) #  25 NA, disappeared by deletion before
 
 
 # 34. initial_list_status ... The initial listing status of the loan. Possible values are – W, F
-LC_Cleaned$initial_list_status <- factor(LC_Cleaned$initial_list_status)
 # TODO-MHA: Transform capital W to lower-w
+# Investigate $initial_list_status, (character)
+unique(LC_Cleaned$initial_list_status) # e.g.: ""f" "w""
+# Convert to lowercase and remove any whitespace for possible mistakes in the test-data
+LC_Cleaned$initial_list_status <- tolower(gsub("\\s+", "", LC_Cleaned$initial_list_status))
+# Verify no maltransformation
+unique(LC_Cleaned$initial_list_status)
+sum(is.na(LC_Cleaned$initial_list_status)) # no missing values
+summary(LC_Cleaned$initial_list_status)
+table(LC_Cleaned$initial_list_status) # f: 411119  w: 387497, seems to be balanced
+# Change to factor
+LC_Cleaned$initial_list_status <- factor(LC_Cleaned$initial_list_status)
+# Make sure it worked
+str(LC_Cleaned$initial_list_status)
+summary(LC_Cleaned$initial_list_status)
 
 
 # 35. out_prncp ... Remaining outstanding principal for total amount funded.
-
 LC_Cleaned <- subset(LC_Cleaned, select = -out_prncp)
 
+
 # 36. out_prncp_inv ... Remaining outstanding principal for portion of total amount funded by investors.
-
 LC_Cleaned <- subset(LC_Cleaned, select = -out_prncp_inv)
-
 
 
 # 37. total_pymnt: Payments received to date for total amount funded.
@@ -467,6 +718,77 @@ LC_Cleaned <- LC_Cleaned %>%
   filter(LC_Cleaned$application_type == "INDIVIDUAL") %>%
   select(-c('annual_inc_joint', 'dti_joint', 'verification_status_joint'))
 
+
+# 55. acc_now_delinq: The number of accounts on which the borrower is now delinquent.
+LC_Cleaned <- clean_column(LC_Cleaned,"acc_now_delinq", remove_outliers=FALSE)
+
+
+# 56. tot_coll_amt: Total collection amounts ever owed.
+LC_Cleaned <- subset(LC_Cleaned, select = -tot_coll_amt)
+
+
+# 57. tot_cur_bal: Total current balance of all accounts.
+LC_Cleaned <- subset(LC_Cleaned, select = -tot_cur_bal)
+
+
+# 58. total_rev_hi_lim: Total revolving high credit/credit limit.
+LC_Cleaned <- subset(LC_Cleaned, select = -total_rev_hi_lim)
+
+
+# 59. open_acc_6m: Number of open trades in last 6 months.
+LC_Cleaned <- subset(LC_Cleaned, select = -open_acc_6m)
+
+
+# 60. open_il_6m: Number of currently active installment trades
+LC_Cleaned <- subset(LC_Cleaned, select = -open_il_6m)
+
+
+# 61. open_il_12m: Number of installment accounts opened in past 12 months
+LC_Cleaned <- subset(LC_Cleaned, select = -open_il_12m)
+
+
+# 62. open_il_24m: Number of installment accounts opened in past 24 months
+LC_Cleaned <- subset(LC_Cleaned, select = -open_il_24m)
+
+
+# 63. mths_since_rcnt_il: Months since most recent installment accounts opened
+LC_Cleaned <- subset(LC_Cleaned, select = -mths_since_rcnt_il)
+
+
+# 64. total_bal_il: Total current balance of all installment accounts
+LC_Cleaned <- subset(LC_Cleaned, select = -total_bal_il)
+
+
+# 65. il_util: Ratio of total current balance to high credit/credit limit on all install acct
+LC_Cleaned <- subset(LC_Cleaned, select = -il_util)
+
+
+# 66. open_rv_12m: Number of revolving trades opened in past 12 months.
+LC_Cleaned <- subset(LC_Cleaned, select = -open_rv_12m)
+
+
+# 67. open_rv_24m: Number of revolving trades opened in past 24 months.
+LC_Cleaned <- subset(LC_Cleaned, select = -open_rv_24m)
+
+
+# 68. max_bal_bc: Maximum current balance owed on all revolving accounts.
+LC_Cleaned <- subset(LC_Cleaned, select = -max_bal_bc)
+
+
+# 69. all_util: Balance to credit limit on all trades.
+LC_Cleaned <- subset(LC_Cleaned, select = -all_util)
+
+
+# 70. inq_fi: Number of personal finance inquiries.
+LC_Cleaned <- subset(LC_Cleaned, select = -inq_fi)
+
+
+# 71. total_cu_tl: Number of finance trades.
+LC_Cleaned <- subset(LC_Cleaned, select = -total_cu_tl)
+
+
+# 72. inq_last_12m: Number of credit inquiries in past 12 months.
+LC_Cleaned <- subset(LC_Cleaned, select = -inq_last_12m)
 
 
 
