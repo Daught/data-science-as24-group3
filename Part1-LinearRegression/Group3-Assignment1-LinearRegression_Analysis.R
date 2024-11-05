@@ -893,7 +893,7 @@ if(show_plots_flag){
   ratio = table(LC_Cleaned$acc_now_delinq)/row_amount
   cbind(occurence, ratio)
   # >99% have 0
-  # Keep column
+  # Keep column, 25 NA's
 }
 
 

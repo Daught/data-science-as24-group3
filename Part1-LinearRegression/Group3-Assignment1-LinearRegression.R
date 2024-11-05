@@ -55,7 +55,7 @@ summary(LC)
 
 ##############   Step 2 - Data Preprocessing   ##########################
 
-clean_column <- function(data, column_name, k = 5, outlier_factor = 1.5, is_ordered_factor = FALSE) {
+clean_column <- function(data, column_name, k = 5, outlier_factor = 1.5, is_ordered_factor = FALSE, remove_outliers=TRUE) {
   
  # Step 1: Remove rows with missing values in the specified column only
   data <- data[!is.na(data[[column_name]]), ]
@@ -87,7 +87,7 @@ clean_column <- function(data, column_name, k = 5, outlier_factor = 1.5, is_orde
   }
   
   # Step 5: Remove outliers in the specified column only if it is numeric
-  if (is.numeric(data[[column_name]])) {
+  if (remove_outliers && is.numeric(data[[column_name]])) {
     Q1 <- quantile(data[[column_name]], 0.25, na.rm = TRUE)
     Q3 <- quantile(data[[column_name]], 0.75, na.rm = TRUE)
     IQR <- Q3 - Q1
@@ -719,6 +719,77 @@ LC_Cleaned <- LC_Cleaned %>%
   filter(LC_Cleaned$application_type == "INDIVIDUAL") %>%
   select(-c('annual_inc_joint', 'dti_joint', 'verification_status_joint'))
 
+
+# 55. acc_now_delinq: The number of accounts on which the borrower is now delinquent.
+LC_Cleaned <- clean_column(LC_Cleaned,"acc_now_delinq", remove_outliers=FALSE)
+
+
+# 56. tot_coll_amt: Total collection amounts ever owed.
+LC_Cleaned <- subset(LC_Cleaned, select = -tot_coll_amt)
+
+
+# 57. tot_cur_bal: Total current balance of all accounts.
+LC_Cleaned <- subset(LC_Cleaned, select = -tot_cur_bal)
+
+
+# 58. total_rev_hi_lim: Total revolving high credit/credit limit.
+LC_Cleaned <- subset(LC_Cleaned, select = -total_rev_hi_lim)
+
+
+# 59. open_acc_6m: Number of open trades in last 6 months.
+LC_Cleaned <- subset(LC_Cleaned, select = -open_acc_6m)
+
+
+# 60. open_il_6m: Number of currently active installment trades
+LC_Cleaned <- subset(LC_Cleaned, select = -open_il_6m)
+
+
+# 61. open_il_12m: Number of installment accounts opened in past 12 months
+LC_Cleaned <- subset(LC_Cleaned, select = -open_il_12m)
+
+
+# 62. open_il_24m: Number of installment accounts opened in past 24 months
+LC_Cleaned <- subset(LC_Cleaned, select = -open_il_24m)
+
+
+# 63. mths_since_rcnt_il: Months since most recent installment accounts opened
+LC_Cleaned <- subset(LC_Cleaned, select = -mths_since_rcnt_il)
+
+
+# 64. total_bal_il: Total current balance of all installment accounts
+LC_Cleaned <- subset(LC_Cleaned, select = -total_bal_il)
+
+
+# 65. il_util: Ratio of total current balance to high credit/credit limit on all install acct
+LC_Cleaned <- subset(LC_Cleaned, select = -il_util)
+
+
+# 66. open_rv_12m: Number of revolving trades opened in past 12 months.
+LC_Cleaned <- subset(LC_Cleaned, select = -open_rv_12m)
+
+
+# 67. open_rv_24m: Number of revolving trades opened in past 24 months.
+LC_Cleaned <- subset(LC_Cleaned, select = -open_rv_24m)
+
+
+# 68. max_bal_bc: Maximum current balance owed on all revolving accounts.
+LC_Cleaned <- subset(LC_Cleaned, select = -max_bal_bc)
+
+
+# 69. all_util: Balance to credit limit on all trades.
+LC_Cleaned <- subset(LC_Cleaned, select = -all_util)
+
+
+# 70. inq_fi: Number of personal finance inquiries.
+LC_Cleaned <- subset(LC_Cleaned, select = -inq_fi)
+
+
+# 71. total_cu_tl: Number of finance trades.
+LC_Cleaned <- subset(LC_Cleaned, select = -total_cu_tl)
+
+
+# 72. inq_last_12m: Number of credit inquiries in past 12 months.
+LC_Cleaned <- subset(LC_Cleaned, select = -inq_last_12m)
 
 
 
