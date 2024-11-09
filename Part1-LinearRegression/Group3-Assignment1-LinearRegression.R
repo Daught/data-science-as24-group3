@@ -694,6 +694,7 @@ LC_Cleaned$mths_since_last_major_derog[is.na(LC_Cleaned$mths_since_last_major_de
 # Conclusion:
 # the policy code has it's min and max at 1, the 126 data-point which have NA might be relevant.
 #LC_Cleaned <- clean_column(LC_Cleaned,"policy_code") # 126 NA's might need to be imputed.
+LC_Cleaned <- subset(LC_Cleaned, select = -policy_code)
 
 
 # 51. application_type: Indicates whether the loan is an individual application or a joint application with two co-borrowers
@@ -716,6 +717,7 @@ LC_Cleaned$mths_since_last_major_derog[is.na(LC_Cleaned$mths_since_last_major_de
 LC_Cleaned <- LC_Cleaned %>% 
   filter(LC_Cleaned$application_type == "INDIVIDUAL") %>%
   select(-c('annual_inc_joint', 'dti_joint', 'verification_status_joint'))
+LC_Cleaned <- subset(LC_Cleaned, select = -application_type)
 
 
 # 55. acc_now_delinq: The number of accounts on which the borrower is now delinquent.
