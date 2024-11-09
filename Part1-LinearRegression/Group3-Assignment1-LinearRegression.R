@@ -672,7 +672,7 @@ LC_Cleaned <- subset(LC_Cleaned, select = -last_credit_pull_d)
 # collections_12_mths_ex_med is an important feature for predicting int_rate, as it directly impacts the lender’s risk assessment during the loan origination process.
 #LC_Cleaned$collections_12_mths_ex_med <- factor(LC_Cleaned$collections_12_mths_ex_med)
 LC_Cleaned$collections_12_mths_ex_med[is.na(LC_Cleaned$collections_12_mths_ex_med)] <- 0
-LC_Cleaned <- clean_column(LC_Cleaned,"collections_12_mths_ex_med")
+#LC_Cleaned <- clean_column(LC_Cleaned,"collections_12_mths_ex_med")
 
 
 # 49. mths_since_last_major_derog: Months since most recent 90-day or worse rating
@@ -685,7 +685,7 @@ LC_Cleaned <- clean_column(LC_Cleaned,"collections_12_mths_ex_med")
 LC_Cleaned$mths_since_last_major_derog[is.na(LC_Cleaned$mths_since_last_major_derog)] <- 0 
 
 # Specify the actual target variable in your regression (for example, 'target_variable_name')
-LC_Cleaned <- clean_column(LC_Cleaned, "mths_since_last_major_derog")
+#LC_Cleaned <- clean_column(LC_Cleaned, "mths_since_last_major_derog")
 
 
 
@@ -693,7 +693,7 @@ LC_Cleaned <- clean_column(LC_Cleaned, "mths_since_last_major_derog")
 # policy_code might have a moderate influence on int_rate, particularly if different policies or products have different interest rate models
 # Conclusion:
 # the policy code has it's min and max at 1, the 126 data-point which have NA might be relevant.
-LC_Cleaned <- clean_column(LC_Cleaned,"policy_code") # 126 NA's might need to be imputed.
+#LC_Cleaned <- clean_column(LC_Cleaned,"policy_code") # 126 NA's might need to be imputed.
 
 
 # 51. application_type: Indicates whether the loan is an individual application or a joint application with two co-borrowers
