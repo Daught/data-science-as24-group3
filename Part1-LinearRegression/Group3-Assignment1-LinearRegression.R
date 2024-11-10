@@ -806,7 +806,7 @@ corrplot(correlation_matrix, method = "color", type = "upper", tl.col = "black",
 
 
 ##############   Step 4 - Prediction Task   ##########################
-
+set.seed(1)
 
 
 # Train a regression model (e.g., linear regression) using individual data
@@ -815,7 +815,31 @@ model <- train(int_rate ~ ., data = LC_Cleaned, method = "lm")
 # Generate predictions for all applications (including joint)
 LC_Cleaned$predicted_int_rate <- predict(model, newdata = LC_Cleaned)
 
+# XGBTree
+set.seed(1)
+xgbGrid <-  expand.grid(nrounds = c(50, 75, 100, 150, 200, 250, 500, 1000, 1500, 2000, 5000),
+                        max_depth = c(6, 9, 12, 15, 21),
+                        eta = c(0.3),
+                        gamma = c(0),
+                        colsample_bytree = c(1.0),
+                        min_child_weight = c(5),
+                        subsample = c(0.6))
 
+model_xgb <- train(int_rate ~ .,
+                   data = LC_Cleaned,
+                   method = "xgbTree",
+                   trControl = trainControl(method = "repeatedcv", 
+                                            number = 5, 
+                                            repeats = 1, 
+                                            verboseIter = TRUE),
+                   tuneGrid = xgbGrid,
+                   verbose = 1)
+model_xgb
+
+model_xgb$bestTune
+
+head(predicted_xgb)
+summary(predicted_xgb)
 
 ##############   Step 5 - Post-Processing (apply business rules)   ##########################
 
