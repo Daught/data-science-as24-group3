@@ -802,8 +802,40 @@ numeric_data <- LC_Cleaned %>% select_if(is.numeric)
 correlation_matrix <- cor(numeric_data)
 
 # Plot the correlation matrix
-corrplot(correlation_matrix, method = "color", type = "upper", tl.col = "black", tl.srt = 45)
+corrplot(correlation_matrix, method = "color", type = "upper", tl.col = "black", addCoef.col = "black",number.cex = 0.3, tl.srt = 45)
 
+
+# removing crosscorrelation (remove the feature correlates less with target)
+# mth_since_last_record and pub_rec correlate strongly -0.7987039
+# mth_since_last_record correlates with the int_rate =  -0.06275585
+# pub_rec correlates with the int_rate = [1] 0.05324214
+# we have a small difference but we drop pub_rec
+LC_Cleaned <- subset(LC_Cleaned, select = -pub_rec)
+
+# removing crosscorrelation (remove the feature correlates less with target)
+# dealing_2yrs and mths_since_last_dealing correlate= -0.38
+# dealing_2yrs correlates with the int_rate =  0.05519081
+# mths_since_last_dealinq correlates with the int_rate = - 0.08058024
+# we drop mths_since_last_dealinq becaus it is also correlated to mths_since_last_major_derog = -0.46
+LC_Cleaned <- subset(LC_Cleaned, select = -mths_since_last_delinq)
+
+# removing crosscorrelation (remove the feature correlates less with target)
+# open_acc and total_acc correlate= 0.69
+# open_acc correlates with the int_rate =  -0.01065261
+# total_acc correlates with the int_rate = -0.03895666
+# we drop open_acc
+LC_Cleaned <- subset(LC_Cleaned, select = -open_acc)
+
+
+# again corr plot
+# Select numeric columns
+numeric_data <- LC_Cleaned %>% select_if(is.numeric)
+
+# Calculate correlation matrix
+correlation_matrix <- cor(numeric_data)
+
+# Plot the correlation matrix
+corrplot(correlation_matrix, method = "color", type = "upper", tl.col = "black", addCoef.col = "black",number.cex = 0.3, tl.srt = 45)
 
 ##############   Step 4 - Prediction Task   ##########################
 set.seed(1)
