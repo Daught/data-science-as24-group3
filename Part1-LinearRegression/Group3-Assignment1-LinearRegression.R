@@ -170,8 +170,9 @@ LC_Cleaned <- subset(LC_Cleaned, select = -emp_title)
 #    Convert this from string to integer and check for missing values.
 # Convert 'emp_length' to integer
 LC_Cleaned$emp_length <- as.integer(ordered(LC_Cleaned$emp_length, levels = c("< 1 year", "1 year", "2 years", "3 years", "4 years", "5 years", "6 years", "7 years", "8 years", "9 years", "10+ years"))) - 1
-# Drop 'emp_title' as it's not useful for analysis
+# Drop 'emp_length' as it's not useful for analysis
 LC_Cleaned <- subset(LC_Cleaned, select = -emp_length)
+# TODO: Firat, why is the employee length removed, it has a lot of 'unknown' fields.. altough should not be removed?
 
 
 # 11. home_ownership: Indicates whether the borrower owns, rents, or has a mortgage on their home.
