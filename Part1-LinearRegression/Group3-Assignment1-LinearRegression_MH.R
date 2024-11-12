@@ -22,6 +22,9 @@ if(!require('GGally')) install.packages('GGally', dependencies = TRUE)
 if(!require('dplyr')) install.packages('dplyr', dependencies = TRUE)
 if(!require("caret")) install.packages("caret", dependencies = TRUE)
 if(!require("VIM")) install.packages("VIM", dependencies = TRUE)
+if(!require("car")) install.packages("car", dependencies = TRUE)
+if(!require("leaps")) install.packages("leaps", dependencies = TRUE)
+if(!require("glmnet")) install.packages("glmnet", dependencies = TRUE)
 
 # Load packages
 library('dplyr')
@@ -32,10 +35,13 @@ library('tidyverse')
 library('ggplot2')
 library('corrplot')
 library('VIM')  # For kNN imputation
+library('car')
+library('leaps')
+library("glmnet")
 
 # load data set
 #data <- read.csv2("ressources/LCdata.csv", header = TRUE, row.names=NULL, sep=";")
-dataset_file_path = "./ressources/LCdata.csv"
+dataset_file_path = "ressources/LCdata.csv"
 data <- read.csv2(dataset_file_path, header = TRUE, row.names=NULL, sep=";")
 
 LC <- data # make a copy of the original data set, so that we dont mess with it
@@ -87,14 +93,14 @@ clean_column <- function(data, column_name, k = 5, outlier_factor = 1.5, is_orde
   }
   
   # Step 5: Remove outliers in the specified column only if it is numeric
-  if (remove_outliers && is.numeric(data[[column_name]])) {
-    Q1 <- quantile(data[[column_name]], 0.25, na.rm = TRUE)
-    Q3 <- quantile(data[[column_name]], 0.75, na.rm = TRUE)
-    IQR <- Q3 - Q1
-    lower_bound <- Q1 - outlier_factor * IQR
-    upper_bound <- Q3 + outlier_factor * IQR
-    data <- data[data[[column_name]] >= lower_bound & data[[column_name]] <= upper_bound, ]
-  }
+#  if (remove_outliers && is.numeric(data[[column_name]])) {
+#    Q1 <- quantile(data[[column_name]], 0.25, na.rm = TRUE)
+#    Q3 <- quantile(data[[column_name]], 0.75, na.rm = TRUE)
+#    IQR <- Q3 - Q1
+#    lower_bound <- Q1 - outlier_factor * IQR
+#    upper_bound <- Q3 + outlier_factor * IQR
+#    data <- data[data[[column_name]] >= lower_bound & data[[column_name]] <= upper_bound, ]
+#  }
   
   # Step 6: Normalize the specified column if it is numeric
   if (is.numeric(data[[column_name]])) {
@@ -141,7 +147,11 @@ LC_Cleaned <- subset(LC_Cleaned, select = -funded_amnt_inv)
 # 6. term: This column specifies the length of the loan in months (either 36 or 60 months). It is essentially a categorical variable, 
 #    so we’ll trim any unnecessary spaces and explore how the term affects loan amounts and funding.
 
-LC_Cleaned$term <- str_trim(LC_Cleaned$term)  # Trimming unnecessary spaces
+LC_Cleaned$term <- gsub("\\s+", "", LC_Cleaned$term) # Remove every white space to ensure consistency
+# Convert 'term' to ordered factor
+LC_Cleaned$term <- factor(LC_Cleaned$term, levels = c("36months", "60months"), ordered = TRUE)
+# LC_Cleaned$term <- str_trim(LC_Cleaned$term)  # Trimming unnecessary spaces
+
 
 
 # 7. int_rate: The interest rate assigned to the loan. This is a key feature for analysis.
@@ -182,11 +192,11 @@ LC_Cleaned <- subset(LC_Cleaned, select = -emp_length)
 # Replace "ANY" and "NONE" with "OTHER" in the home_ownership column
 LC_Cleaned$home_ownership[LC_Cleaned$home_ownership %in% c("ANY", "NONE")] <- "OTHER"
 
-# Convert 'home_ownership' to ordered integer
-LC_Cleaned$home_ownership <- as.integer(ordered(LC_Cleaned$home_ownership, levels = c("OTHER", "RENT", "MORTGAGE", "OWN")))
+# Convert 'home_ownership' to ordered factor instead of integer
+LC_Cleaned$home_ownership <- factor(LC_Cleaned$home_ownership, levels = c("OTHER", "RENT", "MORTGAGE", "OWN"), ordered = TRUE)
 
 # Create dummy columns for 'home_ownership'
-LC_Cleaned <- dummy_columns(LC_Cleaned, select_columns = "home_ownership", remove_selected_columns = TRUE)
+# LC_Cleaned <- dummy_columns(LC_Cleaned, select_columns = "home_ownership", remove_selected_columns = TRUE)
 
 
 # 12. annual_inc: The annual income reported by the borrower during registration.
@@ -242,58 +252,17 @@ LC_Cleaned <- subset(LC_Cleaned, select = -desc)
 
 
 # 19. 'purpose': A category provided by the borrower for the loan request.
-# Investigate $purpose, (character)
-str(LC_Cleaned$purpose)
-unique(LC_Cleaned$purpose) # "other", "debt_consolidation", "moving", "credit_card", "home_improvement", "major_purchase", "wedding", "small_business", "medical", "car", "educational", "vacation", "house", "renewable_energy"
-length(unique(LC_Cleaned$purpose)) # 14 unique values
 LC_Cleaned$purpose <- tolower(LC_Cleaned$purpose) # Convert all characters in the column to lowercase
-# Make sure that there are no empty strings
-sum(LC_Cleaned$purpose == "") # 0
-sum(LC_Cleaned$purpose == " ") # 0
 LC_Cleaned$purpose <- factor(LC_Cleaned$purpose) # Change to unordered factor
-sum(is.na(LC_Cleaned$purpose)) # no missing values
 
 # 20. 'title': The loan title provided by the borrower.
-# Investigate $title, (character)
-str(LC_Cleaned$title) # character
-unique(LC_Cleaned$title)
-length(unique(LC_Cleaned$title)) # 57719
-# To lower case
-LC_Cleaned$title <- tolower(LC_Cleaned$title)
-# Remove all whitespace
-LC_Cleaned$title <- gsub(" ", "", LC_Cleaned$title)
-length(unique(LC_Cleaned$title)) # from 57719 to 48722 unique values, but still!!!
 # As it contains similar information to 'purpose' in free text and thus harder to analyze format we will drop this.
 LC_Cleaned <- subset(LC_Cleaned, select = -title)
 
 # 21. 'zip_code': The first 3 numbers of the zip code provided by the borrower in the loan application.
-
-# TODO-MHA: gsub only the (first, second) number --> make categorical
-str(LC_Cleaned$zip_code)
-unique(LC_Cleaned$zip_code) # e.g.: "806xx" "100xx" "665xx" "068xx" "300xx"
-LC_Cleaned$zip_code <- gsub("xx", "", LC_Cleaned$zip_code) # Remove 'xx'
-# Extract the first two characters of each zip code
-LC_Cleaned$zip_code <- substr(LC_Cleaned$zip_code, 1, 2)
-length(unique(LC_Cleaned$zip_code)) # 100
-sum(LC_Cleaned$zip_code == "00") # 0
-sum(is.na(LC_Cleaned$zip_code)) # no missing values
-
-# As more reducing does not make sense (too big and not necessarily logical connected areas with only 2 digits) we will drop it and use 'addr_state' instead
 LC_Cleaned <- subset(LC_Cleaned, select = -zip_code)
 
 # 22. 'addr_state': The state provided by the borrower in the loan application.
-
-unique(LC_Cleaned$addr_state) # e.g.: ""CO" "NY" "KS" "CT" "GA" "MO" "SD" "FL" "OK" "IN" "PA" "OR" "OH" "TX" "WV" "NM""
-length(unique(LC_Cleaned$addr_state)) # 51 but only 50 states??? DC is included as an extra state
-sum(is.na(LC_Cleaned$addr_state)) # no missing values
-table(LC_Cleaned$addr_state)
-# Count and sort the values
-counts <- table(LC_Cleaned$addr_state)
-sorted_value_counts <- sort(counts, decreasing = TRUE)
-print(sorted_value_counts)
-# Look for empty strings
-sum(LC_Cleaned$addr_state == "") # 0
-sum(LC_Cleaned$addr_state == " ") # 0
 
 # As 51 states handling as a factor is no option. We will map it per region in the US according to this map 
 # (https://stock.adobe.com/fr/images/united-states-geographic-regions-colored-political-map-five-regions-according-to-their-geographic-position-on-the-continent-common-but-unofficial-way-of-referring-to-regions-of-the-united-states/514824675)
@@ -313,115 +282,30 @@ state_to_region <- c(
   'UT' = 'West', 'VT' = 'Northeast', 'VA' = 'Southeast', 'WA' = 'West',
   'WV' = 'Southeast', 'WI' = 'Midwest', 'WY' = 'West'
 )
-
 # Remove any leading/trailing whitespace from addr_state
 LC_Cleaned$addr_state <- trimws(LC_Cleaned$addr_state)
-
 # Create a new column 'region' by mapping each state to its region
 LC_Cleaned$region <- state_to_region[LC_Cleaned$addr_state]
-
-# Verify the result
-table(LC_Cleaned$region)
 LC_Cleaned$region <- factor(LC_Cleaned$region) # Change to factor
-# Be sure there are no NAs
-sum(is.na(LC_Cleaned$addr_state)) # no missing values
-
 # Drop addr_state column as we will 'region' instead
 LC_Cleaned <- subset(LC_Cleaned, select = -addr_state)
-
 
 # 23. 'dti': A ratio calculated using the borrower’s total monthly debt payments on the total debt obligations, 
 # excluding mortgage and the requested LC loan, divided by the borrower’s self-reported monthly income.
 # A lower DTI generally indicates a more manageable debt load relative to income, suggesting the borrower is less risky.
 # A higher DTI suggests a higher burden of debt relative to income, which may indicate greater financial strain or risk.
 ## This needs to be differentiated with application type ("INDIVIDUAL" --> "dti" and "JOINT" --> "dti_joint")
-str(LC_Cleaned$dti)
-unique(LC_Cleaned$dti)
 # Handle empty strings, if there are some
 LC_Cleaned$dti[LC_Cleaned$annual_inc == ""] <- NA
-sum(is.na(LC_Cleaned$dti))
 # Change to number
 LC_Cleaned$dti <- as.numeric(LC_Cleaned$dti)
-summary(LC_Cleaned$dti)
-# Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-# 0.00   11.91   17.66   18.16   23.95 9999.00
-
-# Find the maximum value
-max_value <- max(LC_Cleaned$dti, na.rm = TRUE)
-
-# Check how many times the maximum value occurs
-max_count <- sum(LC_Cleaned$dti == max_value)
-print(max_count)  # 2
-
-# There are 2 values with 9999.00 --> look for there rows (duplicates??)
-
-# Define the value you are looking for
-max_value_to_find <- 150
-# Find the row indices where dti is greater than the value
-row_indices_max <- which(LC_Cleaned$dti > max_value_to_find)
-# Display the rows with this value
-data_with_max_value <- LC_Cleaned[row_indices_max, ]
-print(data_with_max_value) # no duplicates, but annual-inc 0, both are application_type "JOINT" and have annual_inc_joint 185000 resp. 40988
-# Display the rows with this dti value and retrieve only the application_type column
-application_types_with_high_dti <- LC_Cleaned[row_indices_max, "application_type"]
-# Print the application_type values for these rows
-print(application_types_with_high_dti)
-
-# Same for very low values
-min_value_to_find <- 0
-# Find the row indices where column_num equals the value
-row_indices_min <- which(LC_Cleaned$dti == min_value_to_find)
-# Display the rows with this value
-data_with_min_value <- LC_Cleaned[row_indices_min, ]
-
-# Display the rows with this dti value and retrieve only the application_type column
-application_types_with_low_dti <- LC_Cleaned[row_indices_min, "application_type"]
-# Print the application_type values for these rows
-print(application_types_with_low_dti)
-
 
 # 24. 'delinq_2yrs': The number of 30+ days past-due incidences of delinquency in the borrower's credit file for the past 2 years.
-# TODO: MHA: please check again regarding NA's (odd that it only has 25...) CHECK: NAs: 21 --> imputed 0 for them.
-# Investigate $delinq_2yrs (integer)
-summary(LC_Cleaned$delinq_2yrs)
-unique(LC_Cleaned$delinq_2yrs)
-sum(is.na(LC_Cleaned$delinq_2yrs)) # 21 NAs
-# Calculate the frequency of each unique value in delinq_2yrs and sort by frequency
-delinq_counts <- sort(table(LC_Cleaned$delinq_2yrs), decreasing = TRUE)
-# Display the result
-print(delinq_counts)
-
-# Find the row indices where NAs are
-NA_indices_delinq_2yrs <- which(is.na(LC_Cleaned$delinq_2yrs))
-# Display the rows with NAs
-delinq_2yrs_with_NAvalue <- LC_Cleaned[NA_indices_delinq_2yrs, ]
-print(delinq_2yrs_with_NAvalue) # multiple NA-columns
-# Display the rows with 'delinq_2yrs'NAs and retrieve only the application_type column
-application_types_delinq_2yrs_with_NAvalue <- LC_Cleaned[NA_indices_delinq_2yrs, "application_type"]
-print(application_types_delinq_2yrs_with_NAvalue) # Only 'INDIVIDUAL' applications
-  
-# Find application types of values over 0
-delinq_2yrs_present <- 0
-# Find the row indices where 'delinq_2yrs' is over 0
-row_delinq_2yrs_present <- which(LC_Cleaned$delinq_2yrs > delinq_2yrs_present)
-# Display the rows with this value
-data_with_delinq_2yrs_present <- LC_Cleaned[row_delinq_2yrs_present, ]
-print(data_with_delinq_2yrs_present) #
-# Display the rows with this 'delinq_2yrs' value and retrieve only the application_type column
-application_types_delinq_2yrs_present <- LC_Cleaned[row_delinq_2yrs_present, "application_type"]
-# Print the application_type values for these rows
-print(application_types_delinq_2yrs_present)
-unique(application_types_delinq_2yrs_present)
-table(application_types_delinq_2yrs_present)
-  # INDIVIDUAL      JOINT 
-  #    153351        103
-  # A separation of 'INDIVIDUAL' and 'JOINT' and merging makes sense here as well
-  
+# A higher delinq_2yrs value may indicate a greater risk of future payment delinquencies.
 # Impute NA values in delinq_2yrs with 0
 LC_Cleaned$delinq_2yrs[is.na(LC_Cleaned$delinq_2yrs)] <- 0
 
 # 25. 'earliest_cr_line': The month the borrower's earliest reported credit line was opened.
-
 # Remove any leading or trailing whitespace and any non-printing characters
 LC_Cleaned$earliest_cr_line <- trimws(LC_Cleaned$earliest_cr_line)
 LC_Cleaned$earliest_cr_line <- gsub("[^[:print:]]", "", LC_Cleaned$earliest_cr_line)
@@ -431,64 +315,43 @@ Sys.setlocale("LC_TIME", "C")  # "C" is used for the default English locale
 
 # Replace any empty strings with NA
 LC_Cleaned$earliest_cr_line[LC_Cleaned$earliest_cr_line == ""] <- NA
-sum(is.na(LC_Cleaned$earliest_cr_line)) # 25 NAs
-str(LC_Cleaned$earliest_cr_line)
 # Convert earliest_cr_line from "Mon-YYYY" to Date format, assuming the first day of the month
 LC_Cleaned$earliest_cr_line_date <- as.Date(paste0("01-", LC_Cleaned$earliest_cr_line), format = "%d-%b-%Y")
-
-# Display the rows to be sure this worked correctly
-head(LC_Cleaned[, c("earliest_cr_line", "earliest_cr_line_date")], 10)
 
 # Conversion to character and then numerical for analysis
 LC_Cleaned$earliest_cr_line_char <- format(LC_Cleaned$earliest_cr_line_date, "%Y%m")
 LC_Cleaned$earliest_cr_line_numeric <- as.numeric(LC_Cleaned$earliest_cr_line_char)
 
-# Display the first few rows to verify
-head(LC_Cleaned[, c("earliest_cr_line_date", "earliest_cr_line_char", "earliest_cr_line_numeric")], 10)
-
 # Remove the last two digits by dividing by 100 and taking the integer part to get only the year
 LC_Cleaned$earliest_cr_line_year <- LC_Cleaned$earliest_cr_line_numeric %/% 100
-
-summary(LC_Cleaned$earliest_cr_line_numeric)
-summary(LC_Cleaned$earliest_cr_line_year)
 
 # Drop rows with NA in the 'earliest_cr_line_numeric' column
 LC_Cleaned <- LC_Cleaned[!is.na(LC_Cleaned$earliest_cr_line_numeric), ]
 
+# Creates $earliest_cr_line_year, $earliest_cr_line_numeric, $earliest_cr_line_char, $earliest_cr_line_date
+# Drop $earliest_cr_line_year, $earliest_cr_line_char, $earliest_cr_line_date
+LC_Cleaned <- subset(LC_Cleaned, select = -earliest_cr_line_year)
+LC_Cleaned <- subset(LC_Cleaned, select = -earliest_cr_line_char)
+LC_Cleaned <- subset(LC_Cleaned, select = -earliest_cr_line_date)
+LC_Cleaned <- subset(LC_Cleaned, select = -earliest_cr_line)
 
-# 26. 'inq_last_6mths': The number of inquiries in past 6 months (excluding auto and mortgage inquiries)data.frame(..., row.names = NULL, check.rows = FALSE, check.names = TRUE, stringsAsFactors = default.stringsAsFactors())
-summary(LC_Cleaned$inq_last_6mths) #    Min. 1st Qu.  Median    Mean 3rd Qu.    Max.    NA's 
-#                                     0.0000  0.0000  0.0000  0.6947  1.0000 33.0000      25 
-unique(LC_Cleaned$inq_last_6mths) # e.g.: NA  0  1  4  2  3  5 
-sum(is.na(LC_Cleaned$inq_last_6mths)) #  25 NAs on original dataset, same rows as NAs already dropped from earliest_cr_line
 
+# 26. 'inq_last_6mths': The number of inquiries in past 6 months (excluding auto and mortgage inquiries)
+# No adjustments for the analysis needed
 
 # 27. mths_since_last_delinq ... The number of months since the borrower's last delinquency.
 # A value of 12 would indicate that the borrower’s last delinquency was 12 months ago (one year).
 # A value of 0 would indicate that a delinquency occurred within the current month.
-
-summary(LC_Cleaned$mths_since_last_delinq)
-unique(LC_Cleaned$mths_since_last_delinq) # e.g.: NA   0  66  62  28  37  78   8  23  44 
-sum(is.na(LC_Cleaned$mths_since_last_delinq)) #  408818 NA
-  
 # We will impute NAs with a very high number as low numbers indicate more risk for the lender.
 # Replace NA values with 999
 LC_Cleaned$mths_since_last_delinq[is.na(LC_Cleaned$mths_since_last_delinq)] <- 999
-sum(is.na(LC_Cleaned$mths_since_last_delinq)) # 0
 
 
 # 28. mths_since_last_record ... The number of months since the last public record.
 # A specific number (e.g., 12) means the last public record was 12 months ago.
 # A 0 indicates a public record within the current month
-
-str(LC_Cleaned$mths_since_last_record)
-unique(LC_Cleaned$mths_since_last_record) # e.g.: NA   0  95 111  57  76 102 115  54 106  86  19  61   
-sum(is.na(LC_Cleaned$mths_since_last_record)) #  675190 NA
-summary(LC_Cleaned$mths_since_last_record)
-  
 # As NA normally indicates no public record history we impute with a very high number
 LC_Cleaned$mths_since_last_record[is.na(LC_Cleaned$mths_since_last_record)] <- 999
-sum(is.na(LC_Cleaned$mths_since_last_record)) # 0
 
 
 # 29. open_acc ... The number of open credit lines in the borrower's credit file.
@@ -496,39 +359,20 @@ sum(is.na(LC_Cleaned$mths_since_last_record)) # 0
 # A value of 0 indicates that the borrower currently has no active lines of credit. --> lower risk
 # Is it possible that there are people with 90 lines of credit open?
 
-# Investigate $open_acc (int)
-summary(LC_Cleaned$open_acc)
-unique(LC_Cleaned$open_acc) # e.g.: NA  7  9  8  5 12  4 17 10 13 11   
-sum(is.na(LC_Cleaned$open_acc)) #  25 NA, disappeared as NAs were dropped before
-
 
 # 30. pub_rec ... Number of derogatory public records. Derogatory public records are negative financial events that are publicly accessible and can significantly impact a borrower’s creditworthiness.
 # A value of 0 means the borrower has no derogatory public records in their credit file.
 # A value of 1 or higher indicates the number of derogatory public records recorded against the borrower.
 # Higher values suggest a history of multiple financial issues
 
-summary(LC_Cleaned$pub_rec)
-unique(LC_Cleaned$pub_rec) # e.g.: NA  0  1  2  3  5  9    
-sum(is.na(LC_Cleaned$pub_rec)) #  25 NA, disappeared after deleting NA rows before
-
 
 # 31. revol_bal ... Total credit revolving balance.
 # A high revol_bal could indicate a borrower is utilizing a lot of available revolving credit, potentially signaling a higher risk if they are close to maxing out their credit limits.
 # A low or zero revol_bal shows minimal use of revolving credit, which can be favorable, though some utilization is typically seen positively as it shows credit activity.
 ## This needs NA handling. Drop rows? Impute with 0 or mean or knn. By now the NAs will be filled with 0
-
-summary(LC_Cleaned$revol_bal)
-unique(LC_Cleaned$revol_bal) # e.g.: 0 150786  11608   9204   5046   6360  16842   4429 (>70445)    
-sum(is.na(LC_Cleaned$revol_bal)) #  2 NA
-# Find the row indices NAs
-column_to_search <- LC_Cleaned$revol_bal
-NA_indices <- which(is.na(column_to_search))
-# Display the rows with NAs
-data_with_NAvalue <- LC_Cleaned[NA_indices, ]
-print(data_with_NAvalue)
 # Replace NA values with 0
 LC_Cleaned$revol_bal[is.na(LC_Cleaned$revol_bal)] <- 0
-sum(is.na(LC_Cleaned$revol_bal))
+
 
 # 32. revol_util ... Revolving line utilization rate, or the amount of credit the borrower is using relative to all available revolving credit.
 # A low revol_util (e.g., 0-30%) indicates that the borrower is using a small portion of their available credit, which is generally seen positively in credit scoring.
@@ -536,25 +380,12 @@ sum(is.na(LC_Cleaned$revol_bal))
 # 100% or higher means the borrower has maxed out or exceeded their credit limit, which can be a significant risk factor.
 ## This needs NA handling. Drop rows? Impute with 0 or mean or knn. By now the NAs will be filled with 0
 
-summary(LC_Cleaned$revol_util)
 # Handle empty strings
 LC_Cleaned$revol_util[LC_Cleaned$revol_util == ""] <- NA
-sum(is.na(LC_Cleaned$revol_util))
 # Transform to integer
 LC_Cleaned$revol_util <- as.integer(LC_Cleaned$revol_util)
-summary(LC_Cleaned$revol_util)
-unique(LC_Cleaned$revol_util) # e.g.: NA   2.20  56.90  29.30  19.90  25.00    
-sum(is.na(LC_Cleaned$revol_util)) #  454 NA, changed to 429 as rows already were dropped
-# Find the row indices NAs
-column_to_search <- LC_Cleaned$revol_util
-NA_indices <- which(is.na(column_to_search))
-# Display the rows with NAs
-data_with_NAvalue <- LC_Cleaned[NA_indices, ]
-print(data_with_NAvalue)
-  
 # Replace NA values with 0
 LC_Cleaned$revol_util[is.na(LC_Cleaned$revol_util)] <- 0
-sum(is.na(LC_Cleaned$revol_util))
 
 
 # 33. total_acc ... The total number of credit lines currently in the borrower's credit file.
@@ -562,28 +393,12 @@ sum(is.na(LC_Cleaned$revol_util))
 # For example, a value of 10 means the borrower has opened ten credit accounts over time, regardless of whether they are currently open or closed.
 # This could indicate a higher experience with credit, which could be positive.
 
-# Investigate $total_acc (int)
-summary(LC_Cleaned$total_acc)
-unique(LC_Cleaned$total_acc) # e.g.: NA  16  19  43  28  20  35  33  26     
-sum(is.na(LC_Cleaned$total_acc)) #  25 NA, disappeared by deletion before
-
 
 # 34. initial_list_status ... The initial listing status of the loan. Possible values are – W, F
-# TODO-MHA: Transform capital W to lower-w
-# Investigate $initial_list_status, (character)
-unique(LC_Cleaned$initial_list_status) # e.g.: ""f" "w""
 # Convert to lowercase and remove any whitespace for possible mistakes in the test-data
 LC_Cleaned$initial_list_status <- tolower(gsub("\\s+", "", LC_Cleaned$initial_list_status))
-# Verify no maltransformation
-unique(LC_Cleaned$initial_list_status)
-sum(is.na(LC_Cleaned$initial_list_status)) # no missing values
-summary(LC_Cleaned$initial_list_status)
-table(LC_Cleaned$initial_list_status) # f: 411119  w: 387497, seems to be balanced
 # Change to factor
 LC_Cleaned$initial_list_status <- factor(LC_Cleaned$initial_list_status)
-# Make sure it worked
-str(LC_Cleaned$initial_list_status)
-summary(LC_Cleaned$initial_list_status)
 
 
 # 35. out_prncp ... Remaining outstanding principal for total amount funded.
@@ -694,7 +509,7 @@ LC_Cleaned$mths_since_last_major_derog[is.na(LC_Cleaned$mths_since_last_major_de
 # Conclusion:
 # the policy code has it's min and max at 1, the 126 data-point which have NA might be relevant.
 #LC_Cleaned <- clean_column(LC_Cleaned,"policy_code") # 126 NA's might need to be imputed.
-LC_Cleaned <- subset(LC_Cleaned, select = -policy_code) # removing policy_code as it has only one predictor anyway
+LC_Cleaned <- subset(LC_Cleaned, select = -policy_code)
 
 
 # 51. application_type: Indicates whether the loan is an individual application or a joint application with two co-borrowers
@@ -714,10 +529,13 @@ LC_Cleaned <- subset(LC_Cleaned, select = -policy_code) # removing policy_code a
 
 # Train the Model on Individual Applications Only
 # Remove joint-specific features for training
-LC_Cleaned <- LC_Cleaned %>% 
-  filter(LC_Cleaned$application_type == "INDIVIDUAL") %>%
-  select(-c('annual_inc_joint', 'dti_joint', 'verification_status_joint'))
-LC_Cleaned <- subset(LC_Cleaned, select = -application_type) # removing application_type as it has only one predictor anyway
+
+# LC_Cleaned <- LC_Cleaned %>% 
+#  filter(LC_Cleaned$application_type == "INDIVIDUAL") %>%
+#  select(-c('annual_inc_joint', 'dti_joint', 'verification_status_joint'))
+# LC_Cleaned <- subset(LC_Cleaned, select = -application_type)
+# --> apply it at the end
+LC_Cleaned$application_type <- factor(LC_Cleaned$application_type)
 
 
 # 55. acc_now_delinq: The number of accounts on which the borrower is now delinquent.
@@ -791,6 +609,23 @@ LC_Cleaned <- subset(LC_Cleaned, select = -total_cu_tl)
 # 72. inq_last_12m: Number of credit inquiries in past 12 months.
 LC_Cleaned <- subset(LC_Cleaned, select = -inq_last_12m)
 
+# Remove joint-specific features for training, see 51.)
+#LC_Cleaned_unfiltered <- LC_Cleaned
+#LC_Cleaned <- LC_Cleaned %>% 
+#  filter(LC_Cleaned$application_type == "INDIVIDUAL") %>%
+#  select(-c('annual_inc_joint', 'dti_joint', 'verification_status_joint', 'application_type'))
+
+# Create a new data frame with only the "JOINT" application type rows
+LC_Cleaned_application_type_joint <- LC_Cleaned %>% 
+  filter(application_type == "JOINT")
+
+# Remove "JOINT" application type rows from the original LC_Cleaned
+LC_Cleaned <- LC_Cleaned %>% 
+  filter(application_type != "JOINT") %>%
+  select(-c('annual_inc_joint', 'dti_joint', 'verification_status_joint', 'application_type'))
+
+
+
 ##############   Step 3 - Corr   ##########################
 # Load required package
 library(corrplot)
@@ -800,92 +635,211 @@ numeric_data <- LC_Cleaned %>% select_if(is.numeric)
 
 # Calculate correlation matrix
 correlation_matrix <- cor(numeric_data)
+print(correlation_matrix)
 
 # Plot the correlation matrix
-corrplot(correlation_matrix, method = "color", type = "upper", tl.col = "black", addCoef.col = "black",number.cex = 0.3, tl.srt = 45)
+corrplot(correlation_matrix, method = "color", type = "upper", tl.col = "black", tl.srt = 45)
 
-
-# removing crosscorrelation (remove the feature correlates less with target)
-# mth_since_last_record and pub_rec correlate strongly -0.7987039
-# mth_since_last_record correlates with the int_rate =  -0.06275585
-# pub_rec correlates with the int_rate = [1] 0.05324214
-# we have a small difference but we drop pub_rec
-LC_Cleaned <- subset(LC_Cleaned, select = -pub_rec)
-
-# removing crosscorrelation (remove the feature correlates less with target)
-# dealing_2yrs and mths_since_last_dealing correlate= -0.38
-# dealing_2yrs correlates with the int_rate =  0.05519081
-# mths_since_last_dealinq correlates with the int_rate = - 0.08058024
-# we drop mths_since_last_dealinq becaus it is also correlated to mths_since_last_major_derog = -0.46
-LC_Cleaned <- subset(LC_Cleaned, select = -mths_since_last_delinq)
-
-# removing crosscorrelation (remove the feature correlates less with target)
-# open_acc and total_acc correlate= 0.69
-# open_acc correlates with the int_rate =  -0.01065261
-# total_acc correlates with the int_rate = -0.03895666
-# we drop open_acc
-LC_Cleaned <- subset(LC_Cleaned, select = -open_acc)
-
-
-# again corr plot
-# Select numeric columns
-numeric_data <- LC_Cleaned %>% select_if(is.numeric)
-
-# Calculate correlation matrix
-correlation_matrix <- cor(numeric_data)
-
-# Plot the correlation matrix
-corrplot(correlation_matrix, method = "color", type = "upper", tl.col = "black", addCoef.col = "black",number.cex = 0.3, tl.srt = 45)
 
 ##############   Step 4 - Prediction Task   ##########################
-set.seed(1)
+
 
 
 # Train a regression model (e.g., linear regression) using individual data
-model <- train(int_rate ~ ., data = LC_Cleaned, method = "lm")
+
+# Set seed for reproducibility
+set.seed(42)
+
+# Define the split proportion
+train_proportion <- 0.7
+
+# Create indices for training data
+train_indices <- sample(1:nrow(LC_Cleaned), size = floor(train_proportion * nrow(data)))
+
+# Split the data
+train <- LC_Cleaned[train_indices, ]  # Training data (70%)
+test <- LC_Cleaned[-train_indices, ]  # Testing data (30%)
+
+
+lm_1 <- lm(int_rate ~ . , data = train)
+summary(lm_1) # MSE: 10.47649
+vif(lm_1)
+
+sets_1 <- regsubsets(int_rate ~ . , data = train)
+summary(sets_1) # Does not help as we have multiple categorical features.
+
+
+# As there is a high correlation to mths_since_last_major_derog and this is higher correlated to the target, we will drop this feature
+# LC_Cleaned <- subset(LC_Cleaned, select = -mths_since_last_delinq)
+
+# As there is a high correlation between pub_rec and mths_since_last_record we will drop pub_rec.
+# LC_Cleaned <- subset(LC_Cleaned, select = -pub_rec)
+
+# As this seems suspicious and there is a high correlation to total_acc, we will drop this and keep total_acc for model-creation
+# LC_Cleaned <- subset(LC_Cleaned, select = -open_acc)
+
+# No significance in the first model
+# LC_Cleaned <- subset(LC_Cleaned, select = -collections_12_mths_ex_med)
+
+lm_2 <- lm(int_rate ~ .  - collections_12_mths_ex_med - pub_rec, data = train)
+summary(lm_2) # MSE: 10.47565
+
+# No significance for homeownership
+
+lm_3 <- lm(int_rate ~ . - home_ownership - collections_12_mths_ex_med - pub_rec, data = train)
+summary(lm_3) # MSE: 10.56537
+
+# Drop mths_since_las_record as it might be disturbing (high VIF level)
+lm_4 <- lm(int_rate ~ . - mths_since_last_record - home_ownership - collections_12_mths_ex_med - pub_rec, data = train)
+summary(lm_4) # MSE: 10.71717 
+
+# Drop purpose as it has 14 categories
+lm_5 <- lm(int_rate ~ . - purpose - mths_since_last_record - home_ownership - collections_12_mths_ex_med - pub_rec, data = train)
+summary(lm_5) # MSE: 11.53331
+
+
+# Trying lasso regression
+predictors <- model.matrix(int_rate ~ . , train)[,-1]  # first column is the intercept, we remove it
+target <- train$int_rate
+m_LASSO <- glmnet(predictors, target, alpha = 1)
+m_LASSO
+plot(m_LASSO, label=TRUE)
+#### Find the best LASSO model using CV
+(cv_LASSO <- cv.glmnet(predictors, target, alpha = 1)) 
+# Extract the CV RMSE of the best LASSO model
+idx_best_LASSO <- which(cv_LASSO$lambda == cv_LASSO$lambda.min) # index of lambda.min
+cvmse_best_LASSO <- cv_LASSO$cvm[idx_best_LASSO] # CV-MSE of the best model
+print(cvmse_best_LASSO) # 10.47531
+(cvrmse_best_LASSO <- sqrt(cvmse_best_LASSO)) # CV-RMSE of the best model 
+
+##############    Predict interest rate   ##########################
+
+# Predict interest rate on the test data
+test$predicted_int_rate_1 <- predict(lm_1, newdata = test)
+
+# Calculate MAE
+mae <- mean(abs(test$int_rate - test$predicted_int_rate))
+
+# Calculate MSE
+mse <- mean((test$int_rate - test$predicted_int_rate)^2)
+
+# Calculate RMSE
+rmse <- sqrt(mean((test$int_rate - test$predicted_int_rate)^2))
+
+# Calculate R-squared
+sst <- sum((test$int_rate - mean(test$int_rate))^2)  # Total Sum of Squares
+sse <- sum((test$int_rate - test$predicted_int_rate)^2)  # Sum of Squared Errors
+r_squared <- 1 - (sse / sst)
+
+# Display metrics
+cat("MAE:", mae, "\nMSE:", mse, "\nRMSE:", rmse, "\nR-squared:", r_squared, "\n")
+
+# Calculate residuals
+residual <- test$int_rate - test$predicted_int_rate_1  # Actual - Predicted
+
+# Plot residuals
+plot(test$predicted_int_rate_1, residual,
+     xlab = "Predicted Interest Rate lm_1",
+     ylab = "Residuals",
+     main = "Residuals vs. Predicted Interest Rate lm_1")
+    abline(h = 0, col = "red")
+
+# Histogram of Residuals
+hist(residual, 
+     breaks = 30, 
+     main = "Histogram of Residuals", 
+     xlab = "Residuals")
+
+# Example with predictor "purpose"
+plot(test$purpose, residual, 
+     xlab = "Purpose", 
+     ylab = "Residuals", 
+     main = "Residuals vs. Purpose")
+abline(h = 0, col = "red")
+
+
+
+lm_all <- lm(int_rate ~ . , data = LC_Cleaned)
+summary(lm_all) # MSE: 10.47649
+vif(lm_all)
+
+# model <- train(int_rate ~ ., data = LC_Cleaned, method = "lm")
 
 # Generate predictions for all applications (including joint)
-LC_Cleaned$predicted_int_rate <- predict(model, newdata = LC_Cleaned)
+LC_Cleaned$predicted_int_rate <- predict(lm_all, newdata = LC_Cleaned)
 
-# XGBTree
-set.seed(1)
-xgbGrid <-  expand.grid(nrounds = c(50, 75, 100, 150, 200, 250, 500, 1000, 1500, 2000, 5000),
-                        max_depth = c(6, 9, 12, 15, 21),
-                        eta = c(0.3),
-                        gamma = c(0),
-                        colsample_bytree = c(1.0),
-                        min_child_weight = c(5),
-                        subsample = c(0.6))
+# Calculate MAE
+mae <- mean(abs(LC_Cleaned$int_rate - LC_Cleaned$predicted_int_rate))
 
-model_xgb <- train(int_rate ~ .,
-                   data = LC_Cleaned,
-                   method = "xgbTree",
-                   trControl = trainControl(method = "repeatedcv", 
-                                            number = 5, 
-                                            repeats = 1, 
-                                            verboseIter = TRUE),
-                   tuneGrid = xgbGrid,
-                   verbose = 1)
-model_xgb
+# Calculate MSE
+mse <- mean((LC_Cleaned$int_rate - LC_Cleaned$predicted_int_rate)^2)
 
-model_xgb$bestTune
+# Calculate RMSE
+rmse <- sqrt(mean((LC_Cleaned$int_rate - LC_Cleaned$predicted_int_rate)^2))
 
-head(predicted_xgb)
-summary(predicted_xgb)
+# Calculate R-squared
+sst <- sum((LC_Cleaned$int_rate - mean(LC_Cleaned$int_rate))^2)  # Total Sum of Squares
+sse <- sum((LC_Cleaned$int_rate - LC_Cleaned$predicted_int_rate)^2)  # Sum of Squared Errors
+r_squared <- 1 - (sse / sst)
+
+# Display metrics
+cat("MAE:", mae, "\nMSE:", mse, "\nRMSE:", rmse, "\nR-squared:", r_squared, "\n")
+
+
 
 ##############   Step 5 - Post-Processing (apply business rules)   ##########################
 
+# Predict interest rate for the joint applications dataset using the model trained on individual applications
+LC_Cleaned_application_type_joint <- LC_Cleaned_application_type_joint %>%
+  mutate(predicted_int_rate = predict(lm_all, newdata = LC_Cleaned_application_type_joint))
+
+# Apply business rules for final interest rate on joint applications
+LC_Cleaned_application_type_joint <- LC_Cleaned_application_type_joint %>%
+  mutate(
+    final_int_rate = case_when(
+      # Rule 1: JOINT & Source Verified
+      verification_status_joint == "Source Verified" ~ predicted_int_rate,
+      
+      # Rule 2: JOINT & Verified - increase interest rate by 2%
+      verification_status_joint == "Verified" ~ predicted_int_rate * 1.02,
+      
+      # Rule 3: JOINT & Not Verified - set to NA to indicate decline
+      verification_status_joint == "Not Verified" ~ NA_real_,
+      
+      # Default case, if needed (e.g., to handle any unexpected values)
+      TRUE ~ predicted_int_rate
+    )
+  )
+# Filter out rows with NA in final_int_rate (since they are marked as declined and don't have a rate to compare)
+comparison_data <- LC_Cleaned_application_type_joint %>% filter(!is.na(final_int_rate))
+
+# Calculate Mean Absolute Error (MAE)
+mae <- mean(abs(comparison_data$int_rate - comparison_data$final_int_rate))
+
+# Calculate Mean Squared Error (MSE)
+mse <- mean((comparison_data$int_rate - comparison_data$final_int_rate)^2)
+
+# Calculate Root Mean Squared Error (RMSE)
+rmse <- sqrt(mse)
+
+# Print the comparison metrics
+cat("Mean Absolute Error (MAE):", mae, "\n")
+cat("Mean Squared Error (MSE):", mse, "\n") # 15.52696
+cat("Root Mean Squared Error (RMSE):", rmse, "\n")
+
+
+
 # Apply business rules for joint applications
-LC_Cleaned <- LC_Cleaned %>%
-  mutate(final_int_rate = case_when(
-    application_type == "JOINT" & verification_status_joint == "Source Verified" ~ predicted_int_rate,
-    application_type == "JOINT" & verification_status_joint == "Verified" ~ predicted_int_rate * 1.02,  # Increase by 2%
-    application_type == "JOINT" & verification_status_joint == "Not Verified" ~ NA_real_,  # Flag or set to NA
-    TRUE ~ predicted_int_rate  # Keep the original prediction for individual applications
-  ))
+#LC_Cleaned <- LC_Cleaned_unfiltered %>%
+#  mutate(final_int_rate = case_when(
+#    application_type == "JOINT" & verification_status_joint == "Source Verified" ~ predicted_int_rate,
+#    application_type == "JOINT" & verification_status_joint == "Verified" ~ predicted_int_rate * 1.02,  # Increase by 2%
+#    application_type == "JOINT" & verification_status_joint == "Not Verified" ~ NA_real_,  # Flag or set to NA
+#    TRUE ~ predicted_int_rate  # Keep the original prediction for individual applications
+#  ))
 
 # Display the final interest rates with adjustments
-head(LC_Cleaned %>% select(application_type, verification_status_joint, predicted_int_rate, final_int_rate))
+head(LC_Cleaned_application_type_joint %>% select(application_type, verification_status_joint, predicted_int_rate, final_int_rate))
 
 
 
