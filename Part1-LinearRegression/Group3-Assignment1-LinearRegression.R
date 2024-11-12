@@ -722,7 +722,7 @@ LC_Cleaned <- subset(LC_Cleaned, select = -application_type) # removing applicat
 
 
 # 55. acc_now_delinq: The number of accounts on which the borrower is now delinquent.
-LC_Cleaned <- clean_column(LC_Cleaned,"acc_now_delinq", remove_outliers=FALSE)
+LC_Cleaned$acc_now_delinq <- as.integer(LC_Cleaned$acc_now_delinq)
 
 
 # 56. tot_coll_amt: Total collection amounts ever owed.
