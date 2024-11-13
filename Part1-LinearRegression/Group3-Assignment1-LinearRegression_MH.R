@@ -25,6 +25,8 @@ if(!require("VIM")) install.packages("VIM", dependencies = TRUE)
 if(!require("car")) install.packages("car", dependencies = TRUE)
 if(!require("leaps")) install.packages("leaps", dependencies = TRUE)
 if(!require("glmnet")) install.packages("glmnet", dependencies = TRUE)
+if(!require("tree")) install.packages("tree", dependencies = TRUE)
+if(!require("randomForest")) install.packages("tree", dependencies = TRUE)
 
 # Load packages
 library('dplyr')
@@ -38,6 +40,8 @@ library('VIM')  # For kNN imputation
 library('car')
 library('leaps')
 library("glmnet")
+library("tree")
+library("randomForest")
 
 # load data set
 #data <- read.csv2("ressources/LCdata.csv", header = TRUE, row.names=NULL, sep=";")
@@ -61,36 +65,36 @@ summary(LC)
 
 ##############   Step 2 - Data Preprocessing   ##########################
 
-clean_column <- function(data, column_name, k = 5, outlier_factor = 1.5, is_ordered_factor = FALSE, remove_outliers=TRUE) {
+#clean_column <- function(data, column_name, k = 5, outlier_factor = 1.5, is_ordered_factor = FALSE, remove_outliers=TRUE) {
   
  # Step 1: Remove rows with missing values in the specified column only
-  data <- data[!is.na(data[[column_name]]), ]
+#  data <- data[!is.na(data[[column_name]]), ]
   
   # Step 2: Impute missing values only in the specified column (if any remain after filtering)
-  if (is.numeric(data[[column_name]])) {
+ # if (is.numeric(data[[column_name]])) {
     # Impute missing values with mean for numeric columns
     # data[[column_name]][is.na(data[[column_name]])] <- mean(data[[column_name]], na.rm = TRUE)
     
     # Apply kNN imputation to the specified column if it has missing values
-    if (any(is.na(data[[column_name]]))) {
-      data[[column_name]] <- kNN(data[, column_name, drop = FALSE], variable = column_name, k = k, imp_var = FALSE)[[column_name]]
-    }
-  } else if (is.character(data[[column_name]])) {
-    # Replace missing values with "Unknown" for character columns
-    data[[column_name]][is.na(data[[column_name]])] <- "Unknown"
+#    if (any(is.na(data[[column_name]]))) {
+#      data[[column_name]] <- kNN(data[, column_name, drop = FALSE], variable = column_name, k = k, imp_var = FALSE)[[column_name]]
+#    }
+#  } else if (is.character(data[[column_name]])) {
+#    # Replace missing values with "Unknown" for character columns
+#    data[[column_name]][is.na(data[[column_name]])] <- "Unknown"
     # Convert to factor
-    data[[column_name]] <- as.factor(data[[column_name]])
-  }
+#    data[[column_name]] <- as.factor(data[[column_name]])
+#  }
   
   # Step 3: Convert to ordered factor if specified and if it is a factor
-  if (is_ordered_factor && is.factor(data[[column_name]])) {
-    data[[column_name]] <- factor(data[[column_name]], ordered = TRUE)
-  }
+#  if (is_ordered_factor && is.factor(data[[column_name]])) {
+#    data[[column_name]] <- factor(data[[column_name]], ordered = TRUE)
+#  }
   
   # Step 4: Check if the column is a single-level factor and throw an error if so
-  if (is.factor(data[[column_name]]) && nlevels(data[[column_name]]) <= 1) {
-    stop("Specified column has only one level after cleaning, which may be insufficient for regression.")
-  }
+#  if (is.factor(data[[column_name]]) && nlevels(data[[column_name]]) <= 1) {
+#    stop("Specified column has only one level after cleaning, which may be insufficient for regression.")
+#  }
   
   # Step 5: Remove outliers in the specified column only if it is numeric
 #  if (remove_outliers && is.numeric(data[[column_name]])) {
@@ -103,12 +107,12 @@ clean_column <- function(data, column_name, k = 5, outlier_factor = 1.5, is_orde
 #  }
   
   # Step 6: Normalize the specified column if it is numeric
-  if (is.numeric(data[[column_name]])) {
-    data[[column_name]] <- scale(data[[column_name]]) %>% as.numeric()
-  }
+#  if (is.numeric(data[[column_name]])) {
+#    data[[column_name]] <- scale(data[[column_name]]) %>% as.numeric()
+#  }
   
-  return(data)
-}
+#  return(data)
+#}
 
 # Feature Descriptions:
 # 1. id: This is a unique identifier for each loan listing. Although it's essential for tracking loans, it holds no predictive value 
@@ -539,12 +543,12 @@ LC_Cleaned$application_type <- factor(LC_Cleaned$application_type)
 
 
 # 55. acc_now_delinq: The number of accounts on which the borrower is now delinquent.
-LC_Cleaned <- clean_column(LC_Cleaned,"acc_now_delinq", remove_outliers=FALSE)
+# LC_Cleaned <- clean_column(LC_Cleaned,"acc_now_delinq", remove_outliers=FALSE)
 
 
 # 56. tot_coll_amt: Total collection amounts ever owed.
-LC_Cleaned <- subset(LC_Cleaned, select = -tot_coll_amt)
-
+#LC_Cleaned <- subset(LC_Cleaned, select = -tot_coll_amt)
+LC_Cleaned$tot_coll_amt[is.na(LC_Cleaned$tot_coll_amt)] <- 0
 
 # 57. tot_cur_bal: Total current balance of all accounts.
 LC_Cleaned <- subset(LC_Cleaned, select = -tot_cur_bal)
@@ -555,7 +559,7 @@ LC_Cleaned <- subset(LC_Cleaned, select = -total_rev_hi_lim)
 
 
 # 59. open_acc_6m: Number of open trades in last 6 months.
-LC_Cleaned <- subset(LC_Cleaned, select = -open_acc_6m)
+ LC_Cleaned <- subset(LC_Cleaned, select = -open_acc_6m)
 
 
 # 60. open_il_6m: Number of currently active installment trades
@@ -567,7 +571,8 @@ LC_Cleaned <- subset(LC_Cleaned, select = -open_il_12m)
 
 
 # 62. open_il_24m: Number of installment accounts opened in past 24 months
-LC_Cleaned <- subset(LC_Cleaned, select = -open_il_24m)
+#LC_Cleaned <- subset(LC_Cleaned, select = -open_il_24m)
+LC_Cleaned$open_il_24m[is.na(LC_Cleaned$open_il_24m)] <- 0
 
 
 # 63. mths_since_rcnt_il: Months since most recent installment accounts opened
@@ -579,7 +584,9 @@ LC_Cleaned <- subset(LC_Cleaned, select = -total_bal_il)
 
 
 # 65. il_util: Ratio of total current balance to high credit/credit limit on all install acct
-LC_Cleaned <- subset(LC_Cleaned, select = -il_util)
+#LC_Cleaned <- subset(LC_Cleaned, select = -il_util)
+LC_Cleaned$il_util <- as.numeric(LC_Cleaned$il_util)
+LC_Cleaned$il_util[is.na(LC_Cleaned$il_util)] <- 0
 
 
 # 66. open_rv_12m: Number of revolving trades opened in past 12 months.
@@ -587,27 +594,29 @@ LC_Cleaned <- subset(LC_Cleaned, select = -open_rv_12m)
 
 
 # 67. open_rv_24m: Number of revolving trades opened in past 24 months.
-LC_Cleaned <- subset(LC_Cleaned, select = -open_rv_24m)
-
+#LC_Cleaned <- subset(LC_Cleaned, select = -open_rv_24m)
+LC_Cleaned$open_rv_24m[is.na(LC_Cleaned$open_rv_24m)] <- 0
 
 # 68. max_bal_bc: Maximum current balance owed on all revolving accounts.
-LC_Cleaned <- subset(LC_Cleaned, select = -max_bal_bc)
-
+#LC_Cleaned <- subset(LC_Cleaned, select = -max_bal_bc)
+LC_Cleaned$max_bal_bc[is.na(LC_Cleaned$max_bal_bc)] <- 0
 
 # 69. all_util: Balance to credit limit on all trades.
 LC_Cleaned <- subset(LC_Cleaned, select = -all_util)
-
+#LC_Cleaned$all_util <- as.numeric(LC_Cleaned$all_util)
+#LC_Cleaned$all_util[is.na(LC_Cleaned$all_util)] <- 0
 
 # 70. inq_fi: Number of personal finance inquiries.
 LC_Cleaned <- subset(LC_Cleaned, select = -inq_fi)
 
 
 # 71. total_cu_tl: Number of finance trades.
-LC_Cleaned <- subset(LC_Cleaned, select = -total_cu_tl)
-
+#LC_Cleaned <- subset(LC_Cleaned, select = -total_cu_tl)
+LC_Cleaned$total_cu_tl[is.na(LC_Cleaned$total_cu_tl)] <- 0
 
 # 72. inq_last_12m: Number of credit inquiries in past 12 months.
-LC_Cleaned <- subset(LC_Cleaned, select = -inq_last_12m)
+#LC_Cleaned <- subset(LC_Cleaned, select = -inq_last_12m)
+LC_Cleaned$inq_last_12m[is.na(LC_Cleaned$inq_last_12m)] <- 0
 
 # Remove joint-specific features for training, see 51.)
 #LC_Cleaned_unfiltered <- LC_Cleaned
@@ -681,8 +690,9 @@ summary(sets_1) # Does not help as we have multiple categorical features.
 # No significance in the first model
 # LC_Cleaned <- subset(LC_Cleaned, select = -collections_12_mths_ex_med)
 
-lm_2 <- lm(int_rate ~ .  - collections_12_mths_ex_med - pub_rec, data = train)
+lm_2 <- lm(int_rate ~ .  - il_util - collections_12_mths_ex_med - pub_rec, data = train)
 summary(lm_2) # MSE: 10.47565
+vif(lm_2)
 
 # No significance for homeownership
 
@@ -710,12 +720,25 @@ plot(m_LASSO, label=TRUE)
 idx_best_LASSO <- which(cv_LASSO$lambda == cv_LASSO$lambda.min) # index of lambda.min
 cvmse_best_LASSO <- cv_LASSO$cvm[idx_best_LASSO] # CV-MSE of the best model
 print(cvmse_best_LASSO) # 10.47531
-(cvrmse_best_LASSO <- sqrt(cvmse_best_LASSO)) # CV-RMSE of the best model 
+(cvrmse_best_LASSO <- sqrt(cvmse_best_LASSO)) # CV-RMSE of the best model
+
+# Trying trees
+tree_LC <- tree(int_rate ~ . , data = train)
+summary(tree_LC)
+tree_LC.control = tree.control(nobs = dim(train)[1], mincut = 1, minsize = 2, mindev = 0.0001)
+tree_LC.Con <- tree(int_rate ~ ., data = train, control=tree_LC.control)
+summary(tree_LC.Con)
+
+# Trying randomforest
+set.seed(1)
+str(LC_Cleaned)
+randomforest_LC <- randomForest(int_rate ~ ., train, mtry=30, importance =TRUE, ntree=600)
+summary(randomforest_LC)
 
 ##############    Predict interest rate   ##########################
 
 # Predict interest rate on the test data
-test$predicted_int_rate_1 <- predict(lm_1, newdata = test)
+test$predicted_int_rate <- predict(tree_LC.Con, newdata = test)
 
 # Calculate MAE
 mae <- mean(abs(test$int_rate - test$predicted_int_rate))
@@ -733,6 +756,7 @@ r_squared <- 1 - (sse / sst)
 
 # Display metrics
 cat("MAE:", mae, "\nMSE:", mse, "\nRMSE:", rmse, "\nR-squared:", r_squared, "\n")
+
 
 # Calculate residuals
 residual <- test$int_rate - test$predicted_int_rate_1  # Actual - Predicted
@@ -766,7 +790,7 @@ vif(lm_all)
 # model <- train(int_rate ~ ., data = LC_Cleaned, method = "lm")
 
 # Generate predictions for all applications (including joint)
-LC_Cleaned$predicted_int_rate <- predict(lm_all, newdata = LC_Cleaned)
+LC_Cleaned$predicted_int_rate <- predict(model_xgb, newdata = LC_Cleaned)
 
 # Calculate MAE
 mae <- mean(abs(LC_Cleaned$int_rate - LC_Cleaned$predicted_int_rate))
@@ -784,6 +808,32 @@ r_squared <- 1 - (sse / sst)
 
 # Display metrics
 cat("MAE:", mae, "\nMSE:", mse, "\nRMSE:", rmse, "\nR-squared:", r_squared, "\n")
+
+# XGBTree
+set.seed(1)
+xgbGrid <-  expand.grid(nrounds = c(50, 75, 100, 150, 200, 250, 500, 1000, 1500, 2000, 5000),
+                        max_depth = c(6, 9, 12, 15, 21),
+                        eta = c(0.3),
+                        gamma = c(0),
+                        colsample_bytree = c(1.0),
+                        min_child_weight = c(5),
+                        subsample = c(0.6))
+
+model_xgb <- train(int_rate ~ .,
+                   data = train,
+                   method = "xgbTree",
+                   trControl = trainControl(method = "repeatedcv", 
+                                            number = 5, 
+                                            repeats = 1, 
+                                            verboseIter = TRUE),
+                   tuneGrid = xgbGrid,
+                   verbose = 1)
+model_xgb
+
+model_xgb$bestTune
+
+head(predicted_xgb)
+summary(predicted_xgb)
 
 
 
