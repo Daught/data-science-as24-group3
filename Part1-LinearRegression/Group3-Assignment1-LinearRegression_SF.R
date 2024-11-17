@@ -22,14 +22,6 @@ if(!require('GGally')) install.packages('GGally', dependencies = TRUE)
 if(!require('dplyr')) install.packages('dplyr', dependencies = TRUE)
 if(!require("caret")) install.packages("caret", dependencies = TRUE)
 if(!require("VIM")) install.packages("VIM", dependencies = TRUE)
-if(!require("xgboost")) install.packages("xgboost", dependencies = TRUE)
-if(!require("glmnet")) install.packages("glmnet", dependencies = TRUE)
-if(!require("earth")) install.packages("earth", dependencies = TRUE)
-if(!require("gbm")) install.packages("gbm", dependencies = TRUE)
-if(!require("doParallel")) install.packages("doParallel", dependencies = TRUE)
-
-
-
 
 # Load packages
 library('dplyr')
@@ -40,13 +32,6 @@ library('tidyverse')
 library('ggplot2')
 library('corrplot')
 library('VIM')  # For kNN imputation
-library('xgboost')
-library('glmnet')
-library('earth')
-library('gbm')
-library('xgboost')
-library('doParallel')
-
 
 # load data set
 #data <- read.csv2("ressources/LCdata.csv", header = TRUE, row.names=NULL, sep=";")
@@ -742,8 +727,8 @@ LC_Cleaned <- clean_column(LC_Cleaned,"acc_now_delinq", remove_outliers=FALSE)
 
 
 # 56. tot_coll_amt: Total collection amounts ever owed.
-#LC_Cleaned <- subset(LC_Cleaned, select = -tot_coll_amt)
-LC_Cleaned$tot_coll_amt[is.na(LC_Cleaned$tot_coll_amt)] <- 0
+LC_Cleaned <- subset(LC_Cleaned, select = -tot_coll_amt)
+
 
 # 57. tot_cur_bal: Total current balance of all accounts.
 LC_Cleaned <- subset(LC_Cleaned, select = -tot_cur_bal)
@@ -754,7 +739,7 @@ LC_Cleaned <- subset(LC_Cleaned, select = -total_rev_hi_lim)
 
 
 # 59. open_acc_6m: Number of open trades in last 6 months.
- LC_Cleaned <- subset(LC_Cleaned, select = -open_acc_6m)
+LC_Cleaned <- subset(LC_Cleaned, select = -open_acc_6m)
 
 
 # 60. open_il_6m: Number of currently active installment trades
@@ -766,8 +751,7 @@ LC_Cleaned <- subset(LC_Cleaned, select = -open_il_12m)
 
 
 # 62. open_il_24m: Number of installment accounts opened in past 24 months
-#LC_Cleaned <- subset(LC_Cleaned, select = -open_il_24m)
-LC_Cleaned$open_il_24m[is.na(LC_Cleaned$open_il_24m)] <- 0
+LC_Cleaned <- subset(LC_Cleaned, select = -open_il_24m)
 
 
 # 63. mths_since_rcnt_il: Months since most recent installment accounts opened
@@ -779,9 +763,7 @@ LC_Cleaned <- subset(LC_Cleaned, select = -total_bal_il)
 
 
 # 65. il_util: Ratio of total current balance to high credit/credit limit on all install acct
-#LC_Cleaned <- subset(LC_Cleaned, select = -il_util)
-LC_Cleaned$il_util <- as.numeric(LC_Cleaned$il_util)
-LC_Cleaned$il_util[is.na(LC_Cleaned$il_util)] <- 0
+LC_Cleaned <- subset(LC_Cleaned, select = -il_util)
 
 
 # 66. open_rv_12m: Number of revolving trades opened in past 12 months.
@@ -789,31 +771,41 @@ LC_Cleaned <- subset(LC_Cleaned, select = -open_rv_12m)
 
 
 # 67. open_rv_24m: Number of revolving trades opened in past 24 months.
-#LC_Cleaned <- subset(LC_Cleaned, select = -open_rv_24m)
-LC_Cleaned$open_rv_24m[is.na(LC_Cleaned$open_rv_24m)] <- 0
+LC_Cleaned <- subset(LC_Cleaned, select = -open_rv_24m)
+
 
 # 68. max_bal_bc: Maximum current balance owed on all revolving accounts.
-#LC_Cleaned <- subset(LC_Cleaned, select = -max_bal_bc)
-LC_Cleaned$max_bal_bc[is.na(LC_Cleaned$max_bal_bc)] <- 0
+LC_Cleaned <- subset(LC_Cleaned, select = -max_bal_bc)
+
 
 # 69. all_util: Balance to credit limit on all trades.
 LC_Cleaned <- subset(LC_Cleaned, select = -all_util)
-#LC_Cleaned$all_util <- as.numeric(LC_Cleaned$all_util)
-#LC_Cleaned$all_util[is.na(LC_Cleaned$all_util)] <- 0
+
 
 # 70. inq_fi: Number of personal finance inquiries.
 LC_Cleaned <- subset(LC_Cleaned, select = -inq_fi)
 
 
 # 71. total_cu_tl: Number of finance trades.
-#LC_Cleaned <- subset(LC_Cleaned, select = -total_cu_tl)
-LC_Cleaned$total_cu_tl[is.na(LC_Cleaned$total_cu_tl)] <- 0
+LC_Cleaned <- subset(LC_Cleaned, select = -total_cu_tl)
+
 
 # 72. inq_last_12m: Number of credit inquiries in past 12 months.
-#LC_Cleaned <- subset(LC_Cleaned, select = -inq_last_12m)
-LC_Cleaned$inq_last_12m[is.na(LC_Cleaned$inq_last_12m)] <- 0
+LC_Cleaned <- subset(LC_Cleaned, select = -inq_last_12m)
 
-# Further analysis based on corrplots
+##############   Step 3 - Corr   ##########################
+# Load required package
+library(corrplot)
+
+# Select numeric columns
+numeric_data <- LC_Cleaned %>% select_if(is.numeric)
+
+# Calculate correlation matrix
+correlation_matrix <- cor(numeric_data)
+
+# Plot the correlation matrix
+corrplot(correlation_matrix, method = "color", type = "upper", tl.col = "black", addCoef.col = "black",number.cex = 0.3, tl.srt = 45)
+
 
 # removing crosscorrelation (remove the feature correlates less with target)
 # mth_since_last_record and pub_rec correlate strongly -0.7987039
@@ -837,161 +829,66 @@ LC_Cleaned <- subset(LC_Cleaned, select = -mths_since_last_delinq)
 LC_Cleaned <- subset(LC_Cleaned, select = -open_acc)
 
 
+# again corr plot
+# Select numeric columns
+numeric_data <- LC_Cleaned %>% select_if(is.numeric)
 
-##############   Step 4 - Train Model Task   ##########################
-##############   Step 4.1 - Train Test Split Data   ##########################
-set.seed(42)
+# Calculate correlation matrix
+correlation_matrix <- cor(numeric_data)
 
-sample <- sample(c(TRUE, FALSE), nrow(LC_Cleaned), replace=TRUE, prob=c(0.8,0.2))
-train  <- subset(LC_Cleaned, sample == TRUE)
-test   <- subset(LC_Cleaned, sample == FALSE)
+# Plot the correlation matrix
+corrplot(correlation_matrix, method = "color", type = "upper", tl.col = "black", addCoef.col = "black",number.cex = 0.3, tl.srt = 45)
 
-start_time_knn = Sys.time()
-train_knn = kNN(train, imp_var = FALSE)
-difftime(Sys.time(), start_time_knn, units = "secs")
-
-y_train = data.matrix(subset(train_knn, select = int_rate))
-X_train = data.matrix(subset(train_knn, select = -int_rate))
-
-test_clean <- na.omit(test)
-y_test = data.matrix(subset(test_clean, select = int_rate))
-X_test = data.matrix(subset(test_clean, select = -int_rate))
-
-
-
-##############   Step 4 - learningn & fine tuning Task   ##########################
-
-tData <- sample(1:nrow(LC_Cleaned), 0.1*nrow(LC_Cleaned))
-trainData <- LC_Cleaned[tData,]
-testData <- LC_Cleaned[-tData,]
-
-
-# Set up parallel processing to manage memory usage and speed up computations
-num_cores <- parallel::detectCores() - 1 # Use all but one core
-cl <- makePSOCKcluster(num_cores)
-registerDoParallel(cl)
-
-# Helper function to calculate and display MSE
-calculate_mse <- function(predictions, actuals) {
-  mse <- mean((actuals - predictions)^2)
-  return(mse)
-}
-
-### Cross-Validation Setup
-cv_control <- trainControl(
-  method = "repeatedcv", 
-  number = 5,             # 5-fold cross-validation
-  repeats = 3,            # Repeat 3 times
-  verboseIter = TRUE,     # Show progress
-  allowParallel = TRUE    # Enable parallel processing
-)
-
-### Model Training with Fine-Tuning and Cross-Validation
-
-# **Linear Model**
-set.seed(123)
-lm_model <- train(
-  int_rate ~ ., 
-  data = trainData, 
-  method = "lm", 
-  trControl = cv_control
-)
-lm_predictions <- predict(lm_model, testData)
-lm_mse <- calculate_mse(lm_predictions, testData$int_rate)
-cat("Linear Model MSE:", lm_mse, "\n")
-
-# **Ridge Regression**
-predictors_train <- model.matrix(int_rate ~ ., trainData)[, -1]
-outputs_train <- trainData$int_rate
-ridge_model <- train(
-  int_rate ~ ., 
-  data = trainData, 
-  method = "glmnet", 
-  tuneGrid = expand.grid(alpha = 0, lambda = 10^seq(-4, 0, length = 10)), 
-  trControl = cv_control
-)
-ridge_predictions <- predict(ridge_model, testData)
-ridge_mse <- calculate_mse(ridge_predictions, testData$int_rate)
-cat("Ridge Regression MSE:", ridge_mse, "\n")
-
-# **LASSO Regression**
-lasso_model <- train(
-  int_rate ~ ., 
-  data = trainData, 
-  method = "glmnet", 
-  tuneGrid = expand.grid(alpha = 1, lambda = 10^seq(-4, 0, length = 10)), 
-  trControl = cv_control
-)
-lasso_predictions <- predict(lasso_model, testData)
-lasso_mse <- calculate_mse(lasso_predictions, testData$int_rate)
-cat("LASSO Regression MSE:", lasso_mse, "\n")
-
-# **MARS Model**
-set.seed(123)
-mars_model <- train(
-  int_rate ~ ., 
-  data = trainData, 
-  method = "earth", 
-  tuneGrid = expand.grid(degree = c(1, 2), nprune = seq(2, 50, by = 5)), 
-  trControl = cv_control
-)
-mars_predictions <- predict(mars_model, testData)
-mars_mse <- calculate_mse(mars_predictions, testData$int_rate)
-cat("MARS Model MSE:", mars_mse, "\n")
-
-# **Gradient Boosting (GBM)**
+##############   Step 4 - Prediction Task   ##########################
 set.seed(1)
-gbm_grid <- expand.grid(
-  interaction.depth = c(3, 5, 7), 
-  n.trees = seq(50, 200, by = 50), 
-  shrinkage = 0.1, 
-  n.minobsinnode = 10
-)
-gbm_model <- train(
-  int_rate ~ ., 
-  data = trainData, 
-  method = "gbm", 
-  tuneGrid = gbm_grid, 
-  trControl = cv_control, 
-  verbose = FALSE
-)
-gbm_predictions <- predict(gbm_model, testData)
-gbm_mse <- calculate_mse(gbm_predictions, testData$int_rate)
-cat("Gradient Boosting MSE:", gbm_mse, "\n")
+## Define training and test data
 
-# **Extreme Gradient Boosting (XGBoost)**
-set.seed(123)
-xgb_grid <- expand.grid(
-  nrounds = seq(100, 2000, by = 500), 
-  max_depth = c(3, 5, 7), 
-  eta = c(0.1, 0.3), 
-  gamma = 0, 
-  colsample_bytree = c(0.8, 1.0), 
-  min_child_weight = c(1, 5), 
-  subsample = 0.8
-)
-xgb_model <- train(
-  int_rate ~ ., 
-  data = trainData, 
-  method = "xgbTree", 
-  tuneGrid = xgb_grid, 
-  trControl = cv_control, 
-  verbose = TRUE
-)
-xgb_predictions <- predict(xgb_model, testData)
-xgb_mse <- calculate_mse(xgb_predictions, testData$int_rate)
-cat("XGBoost MSE:", xgb_mse, "\n")
-
-# Save the best model to disk
-best_model <- gbm_model # Update this based on the model with the lowest MSE
-saveRDS(best_model, "best_model.rds")
-
-# Stop the parallel cluster to free up memory
-stopCluster(cl)
+# Note: Please do NOT set a seed here.
+#       We want to get different results in every run this time! 
+#       At the end we will compare the different runs to see how robust (stable/unstable) the results are.
+(train.indices <- sample(nrow(LC_Cleaned),floor(nrow(LC_Cleaned)*0.01))) 
+train.obs <- LC_Cleaned[train.indices,] # training data (70%)
+test.obs <- LC_Cleaned[-train.indices,] # test data (remaining 30%)
 
 
 
-##############   Step 4 - Experimental Model(s)   ##########################
+##############   Model: Simple Linear Regression   ##########################
+# Train a regression model (e.g., linear regression) using individual data
+lm.fit1 <- train(int_rate ~ ., data = LC_Cleaned, method = "lm")
+
+# Generate predictions for all applications (including joint)
+LC_Cleaned$predicted_int_rate <- predict(model, newdata = LC_Cleaned)
+
+
+##############   Model: XGBTree   ##########################
+set.seed(1)
+xgbGrid <-  expand.grid(nrounds = c(50, 75, 100, 150, 200, 250, 500, 1000, 1500, 2000, 5000),
+                        max_depth = c(6, 9, 12, 15, 21),
+                        eta = c(0.3),
+                        gamma = c(0),
+                        colsample_bytree = c(1.0),
+                        min_child_weight = c(5),
+                        subsample = c(0.6))
+
+model_xgb <- train(int_rate ~ .,
+                   data = train.obs,
+                   method = "xgbTree",
+                   trControl = trainControl(method = "repeatedcv", 
+                                            number = 5, 
+                                            repeats = 1, 
+                                            verboseIter = TRUE),
+                   tuneGrid = xgbGrid,
+                   verbose = 1)
+# model_xgb
+
+model_xgb$bestTune
+
+head(predicted_xgb)
+summary(predicted_xgb)
+
+
+
+
 ##############   Model: Random Forest   ##########################
 
 ### (a.) Fit a random forest using all input variables
@@ -1002,7 +899,7 @@ if(!require('randomForest')) {      # For bagging and random forests
 }
 
 set.seed(1) 
-(tree.rf <- randomForest(int_rate ~ ., X_train, mtry = 6, importance =TRUE, ntree=600))
+(tree.rf <- randomForest(int_rate ~ ., train.obs, mtry = 6, importance =TRUE, ntree=600))
 ### (b.) Calculate the OOB error (equivalent of CV error).
 
 # we can watch the variable importance
@@ -1013,7 +910,14 @@ varImpPlot(tree.rf)
 tree.rf
 
 # Or calculate it manually:
-tree.rf.train.RMSE <- sqrt(mean((tree.rf$predicted - X_train$int_rate)^2))
+tree.rf.train.RMSE <- sqrt(mean((tree.rf$predicted - train.obs$int_rate)^2))
+
+#   What do we see?
+#
+#   - OOB-MSE: 
+#   - OOB-RMSE: 
+#   - The bagged tree wins!
+
 
 ### (c.) Optimize the parameters (ntree and mtry).
 
@@ -1031,10 +935,10 @@ plot(tree.rf)
 ### (d.) Evaluate the tree on the test set.
 
 # Make predictions
-tree.rf.predict.test <- predict(tree.rf, test)
+tree.rf.predict.test <- predict(tree.rf, test.obs)
 
 # Test RMSE
-(tree.rf.test.MSE <- mean((tree.rf.predict.test - test$int_rate)^2))
+(tree.rf.test.MSE <- mean((tree.rf.predict.test - test.obs$int_rate)^2))
 (tree.rf.test.RMSE <- sqrt(tree.rf.test.MSE))
 
 
@@ -1042,114 +946,208 @@ tree.rf.predict.test <- predict(tree.rf, test)
 #
 #   As expected, the test-RMSE (312) is higher than the OOB-RMSE (287).
 
-
-
-##############   Model: Simple Linear Regression   ##########################
-# Train a regression model (e.g., linear regression) using individual data
-lm.fit1 <- train(int_rate ~ ., data = X_train, method = "lm")
-
-# Generate predictions for all applications (including joint)
-LC_Cleaned$predicted_int_rate <- predict(model, newdata = test)
-
-
-
-
-
-
-##############   Fine-Tuning: Boosting, XGBoost
-
-
-##############   Step 4 - Final Model   ##########################
 ##############   Model: Boosting, XGBoost   ##########################
-xgb_train = xgb.DMatrix(data = X_train, label = y_train)
-xgb_test = xgb.DMatrix(data = X_test, label = y_test)
-watchlist = list(train=xgb_train, test=xgb_test)
 
-start = Sys.time()
+if(!require('gbm')) {               # For boosting
+  install.packages('gbm')
+  library('gbm')
+}
 
-m1_99problems <-
-  xgb.train(
-    data = xgb_train,
-    watchlist=watchlist,
-    nrounds = 500,
-    objective = "reg:squarederror",
-    early_stopping_rounds = 10,
-    max_depth = 6,
-  )
+##3### (ad 2) On the training set:
 
-#xgbGrid <-  expand.grid(nrounds = c(50, 75, 100, 150, 200, 250, 500, 1000, 1500, 2000, 5000),
-xgbGrid <-  expand.grid(nrounds = c(500),
-                        max_depth = c(6, 9, 12, 15, 21),
-                        eta = c(0.3),
-                        gamma = c(0),
-                        colsample_bytree = c(1.0),
-                        min_child_weight = c(5),
-                        subsample = c(0.6))
+### (a.) Fit a boosted tree using all input variables
 
-model_xgb <- train(int_rate ~ .,
-                   data = train,
-                   watchlist=watchlist,
-                   method = "xgbTree",
-                   trControl = trainControl(method = "repeatedcv", 
-                                            number = 5, 
-                                            repeats = 1, 
-                                            verboseIter = TRUE),
-                   tuneGrid = xgbGrid,
-                   verbose = 1)
-model_xgb
+# To do that, use the function gbm():
+#   - distribution = "gaussian" ... refers to a regression problem. 
+#   - n.trees	                  ... Default: 100. Specifies the total number of trees to fit (number of iterations). 
+#   - interaction.depth         ... Default: 1. Maximum depth of variable interactions. 
+#                                     - 1: additive model
+#                                     - 2: a model with up to 2-way interactions, etc. 
+#   - shrinkage                 ... Default: 0.1. The learning rate. (Also called shrinkage parameter or step-size reduction).
+#                                     - 0.001 to 0.1 usually work.
+#                                     - A smaller learning rate typically requires more trees. 
+set.seed(1)
 
-model_xgb$bestTune
-
-head(predicted_xgb)
-summary(predicted_xgb)
+train.obs.xgb <- train.obs
+train.obs.xgb$term <- factor(train.obs.xgb$term, ordered = TRUE)
+train.obs.xgb$earliest_cr_line <- factor(train.obs.xgb$earliest_cr_line, ordered = TRUE)
+train.obs.xgb <- subset(train.obs.xgb, select = -earliest_cr_line)
+train.obs.xgb <- subset(train.obs.xgb, select = -earliest_cr_line_char)
+train.obs.xgb <- subset(train.obs.xgb, select = -earliest_cr_line_date)
+tree.boost <- gbm(int_rate ~ ., train.obs.xgb, distribution="gaussian", n.trees=500, interaction.depth = 1, shrinkage = 0.01)
 
 
-postResample(y_pred, y_test)
+## Inspect output
+summary(tree.boost)
 
-importance_matrix <- xgb.importance(colnames(X_train), model = m1_99problems)
+#   What do we see?
+#
+#   - var: tells you which variables are included in the model, and in which order.
+#   - re.inf: relative influence of each variable on the model's predictions. 
+#             Higher values indicate that the variable has a greater influence on the model, while lower values suggest less influence.
+#   - The plot shows the variable importance as a bar plot.
+#       - The most important variable is "Walks" (walks this year).
+#       - We do not have CHits at the top of the list, as we had in the other models.
+#       - The reason is that boosting is a sequential method, and the importance of the variables can change over time.
 
-xgb.plot.importance(importance_matrix, rel_to_first = TRUE, xlab = "Relative importance")
+### (b.) Calculate the training error 
+
+# Remark: We don't have an OOB error here, so we need to calculate the training error.
+
+
+
+### (b.) Hyper-parameter tuning:
+
+# We must optimize 4 different parameters:
+#   - n.trees: number of trees to fit
+#   - interaction.depth: maximum depth of variable interactions
+#   - shrinkage: learning rate
+#   - n.minobsinnode: minimum number of observations in the terminal nodes. (Required by trainControl!)
+# We cando a grid search to find the best combination of these parameters.
+
+
+# Define the grid of hyperparameters
+grid <- expand.grid(n.trees = c(100, 200, 300),
+                    interaction.depth = c(1, 3, 5),
+                    shrinkage = c(0.01, 0.1),
+                    n.minobsinnode = c(10, 20))
+
+# Specify the train control parameters
+train_control <- trainControl(method = "cv", number = 5)
+
+# Train the model using grid search
+set.seed(1)
+tree.boost.grid <- train(Salary ~ ., data = Ht_nonas.train,
+                         method = "gbm",
+                         trControl = train_control,
+                         tuneGrid = grid,
+                         verbose = FALSE)
+
+# Inspect the result
+tree.boost.grid
+tree.boost.grid$results
+
+# Select the best model parameters
+grid.idx <- which(tree.boost.grid$results$RMSE == min(tree.boost.grid$results$RMSE))  # Index of minimal RMSE
+(best.n.trees <- tree.boost.grid$results$n.trees[grid.idx]) # Retrieve optimal n.trees
+(best.interaction.depth <- tree.boost.grid$results$interaction.depth[grid.idx]) # Retrieve optimal interaction.depth
+(best.shrinkage <- tree.boost.grid$results$shrinkage[grid.idx]) # Retrieve optimal shrinkage
+(best.n.minobsinnode <- tree.boost.grid$results$n.minobsinnode[grid.idx]) # Retrieve optimal n.minobsinnode
+
+# Fit the best model
+set.seed (1)
+(tree.boost.opt <- gbm(Salary ~ ., Ht_nonas.train, 
+                       distribution="gaussian", 
+                       n.trees=best.n.trees, 
+                       interaction.depth = best.interaction.depth, 
+                       shrinkage = best.shrinkage,
+                       n.minobsinnode = best.n.minobsinnode))
+
+
+## Inspect output
+summary(tree.boost.opt)
+
+
+## Calculate the training error 
+
+## Make predictions on the training set
+tree.boost.opt.predict.train <- predict(tree.boost.opt, Ht_nonas.train)
+
+## Training error (RMSE)
+(tree.boost.opt.train.MSE <- mean((tree.boost.opt.predict.train - Ht_nonas.train$Salary)^2))
+(tree.boost.opt.train.RMSE <- sqrt(tree.boost.opt.train.MSE))
+# tree.boost.opt: 95
+# tree.boost: 255
+
+##############   Step 4 - Validation Set Approach   ##########################
+
+##############  Use the Validation Set Approach (VSA) to evaluate our linear regression models of lab 1 ##########################
+
+
+## Train the last 2 models from the Regression Lab: 
+
+# Note: 
+#   - This time we train it only on 70% of the sample (on the training data).
+#   - We keep the remaining 30% (the test data) on the side, so that we can evaluate the models on new, unseen data.
+
+lm.fit2 <- train(int_rate ~ ., data = train.obs, method = "lm")
+lm.fit3 <- train(int_rate ~ ., data = train.obs, method = "lm")
+
+# Remember:
+#  - The only difference between model 3 and model 4 was the variable "acceleration":
+#  - In model 3, acceleration we was not significant, so we kicked it out.
+
+
+## Evaluate the model on the training data:
+
+summary(lm.fit2)
+# In model 3, all variables except acceleration are significant. 
+# The f-statistics is fine. 
+# The adR2 is a bit over 80%. 
+# The RSE seems not too bad as well: It a bit over 3.3 mpg (around 10% of the sample range). 
+summary(lm.fit3)
+# In model 4, all variables are significant. 
+# The f-statistics is fine.
+# adR2 and RSE are approximately the same as in model 3.
+
+# These are roughly the same results as we got in the Regression Lab when we trained the models on the whole sample.
+# But they do deviate a bit, since we trained the models on a smaller sample now. 
+# Also, we get slightly different results in every run, since we did not set a seed when generating the training and test sets.
+
+
+# Estimate the prediction accuracy on training set and test set using MSE:
+
+# REMEMBER:
+#
+#  - In the introductory lecture, we learned that the MSE (Mean Squared Error) is a good measure to evaluate 
+#    the prediction accuracy of a regression model.
+#  - The MSE is the average of the squared differences between the predicted values and the true values.
+#  - We can calculate the MSE on both, the training set and the test set.
+#  - Usually, the training MSE is lower than the test MSE, since the model "knows" the training data, while the test data is new and unseen.
+#  - The test MSE is a better measure of the model's prediction accuracy, since it is closer to the case when we deploy the model to make 
+#    predictions on new data.
+#
+#  - The RMSE (Root Mean Squared Error) is the square root of the MSE. 
+#  - It is a more interpretable measure, since it is in the same unit as the output variable.
+
+
+# Calculate the *training* RMSE of the two models:
+(trainRMSE.fit2 <- sqrt(mean(lm.fit2$residuals^2)))
+(trainRMSE.fit3 <- sqrt(mean(lm.fit3$residuals^2)))
+
+# Make predictions on the test set:
+test.pred.fit2 <- predict(lm.fit2,test.obs)
+test.pred.fit3 <- predict(lm.fit3,test.obs)
+
+# Calculate the *test* RMSE of the two models:
+(testRMSE.fit2 <- sqrt(mean((test.obs$int_rate - test.pred.fit2)^2)))
+(testRMSE.fit3 <- sqrt(mean((test.obs$int_rate - test.pred.fit3)^2)))
+
+
+
+
+
+
+
+
+
+
+
 
 
 ##############   Step 5 - Post-Processing (apply business rules)   ##########################
 
-# Predict interest rate for the joint applications dataset using the model trained on individual applications
-LC_Cleaned_application_type_joint <- LC_Cleaned_application_type_joint %>%
-  mutate(predicted_int_rate = predict(lm_all, newdata = LC_Cleaned_application_type_joint))
+# Apply business rules for joint applications
+LC_Cleaned <- LC_Cleaned %>%
+  mutate(final_int_rate = case_when(
+    application_type == "JOINT" & verification_status_joint == "Source Verified" ~ predicted_int_rate,
+    application_type == "JOINT" & verification_status_joint == "Verified" ~ predicted_int_rate * 1.02,  # Increase by 2%
+    application_type == "JOINT" & verification_status_joint == "Not Verified" ~ NA_real_,  # Flag or set to NA
+    TRUE ~ predicted_int_rate  # Keep the original prediction for individual applications
+  ))
 
-# Apply business rules for final interest rate on joint applications
-LC_Cleaned_application_type_joint <- LC_Cleaned_application_type_joint %>%
-  mutate(
-    final_int_rate = case_when(
-      # Rule 1: JOINT & Source Verified
-      verification_status_joint == "Source Verified" ~ predicted_int_rate,
-      
-      # Rule 2: JOINT & Verified - increase interest rate by 2%
-      verification_status_joint == "Verified" ~ predicted_int_rate * 1.02,
-      
-      # Rule 3: JOINT & Not Verified - set to NA to indicate decline
-      verification_status_joint == "Not Verified" ~ NA_real_,
-      
-      # Default case, if needed (e.g., to handle any unexpected values)
-      TRUE ~ predicted_int_rate
-    )
-  )
-# Filter out rows with NA in final_int_rate (since they are marked as declined and don't have a rate to compare)
-comparison_data <- LC_Cleaned_application_type_joint %>% filter(!is.na(final_int_rate))
-
-# Calculate Mean Absolute Error (MAE)
-mae <- mean(abs(comparison_data$int_rate - comparison_data$final_int_rate))
-
-# Calculate Mean Squared Error (MSE)
-mse <- mean((comparison_data$int_rate - comparison_data$final_int_rate)^2)
-
-# Calculate Root Mean Squared Error (RMSE)
-rmse <- sqrt(mse)
-
-# Print the comparison metrics
-cat("Mean Absolute Error (MAE):", mae, "\n")
-cat("Mean Squared Error (MSE):", mse, "\n") # 15.52696
-cat("Root Mean Squared Error (RMSE):", rmse, "\n")
+# Display the final interest rates with adjustments
+head(LC_Cleaned %>% select(application_type, verification_status_joint, predicted_int_rate, final_int_rate))
 
 
 
