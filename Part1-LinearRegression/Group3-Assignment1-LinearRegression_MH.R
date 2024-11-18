@@ -584,9 +584,7 @@ LC_Cleaned <- subset(LC_Cleaned, select = -total_bal_il)
 
 
 # 65. il_util: Ratio of total current balance to high credit/credit limit on all install acct
-#LC_Cleaned <- subset(LC_Cleaned, select = -il_util)
-LC_Cleaned$il_util <- as.numeric(LC_Cleaned$il_util)
-LC_Cleaned$il_util[is.na(LC_Cleaned$il_util)] <- 0
+LC_Cleaned <- subset(LC_Cleaned, select = -il_util)
 
 
 # 66. open_rv_12m: Number of revolving trades opened in past 12 months.
@@ -598,8 +596,7 @@ LC_Cleaned <- subset(LC_Cleaned, select = -open_rv_12m)
 LC_Cleaned$open_rv_24m[is.na(LC_Cleaned$open_rv_24m)] <- 0
 
 # 68. max_bal_bc: Maximum current balance owed on all revolving accounts.
-#LC_Cleaned <- subset(LC_Cleaned, select = -max_bal_bc)
-LC_Cleaned$max_bal_bc[is.na(LC_Cleaned$max_bal_bc)] <- 0
+LC_Cleaned <- subset(LC_Cleaned, select = -max_bal_bc)
 
 # 69. all_util: Balance to credit limit on all trades.
 LC_Cleaned <- subset(LC_Cleaned, select = -all_util)
@@ -657,7 +654,7 @@ corrplot(correlation_matrix, method = "color", type = "upper", tl.col = "black",
 # Train a regression model (e.g., linear regression) using individual data
 
 # Set seed for reproducibility
-set.seed(42)
+set.seed(1)
 
 # Define the split proportion
 train_proportion <- 0.7
@@ -668,6 +665,74 @@ train_indices <- sample(1:nrow(LC_Cleaned), size = floor(train_proportion * nrow
 # Split the data
 train <- LC_Cleaned[train_indices, ]  # Training data (70%)
 test <- LC_Cleaned[-train_indices, ]  # Testing data (30%)
+
+
+######### XGBTree
+xgbGrid <-  expand.grid(nrounds = c(50, 75, 100, 150, 200, 250, 500, 1000, 1500, 2000, 5000),
+                        max_depth = c(6, 9, 12, 15, 21),
+                        eta = c(0.3),
+                        gamma = c(0),
+                        colsample_bytree = c(1.0),
+                        min_child_weight = c(5),
+                        subsample = c(0.6))
+
+model_xgb <- train(int_rate ~ .,
+                   data = train,
+                   method = "xgbTree",
+                   trControl = trainControl(method = "repeatedcv", 
+                                            number = 5, 
+                                            repeats = 1, 
+                                            verboseIter = TRUE),
+                   tuneGrid = xgbGrid,
+                   verbose = 1)
+model_xgb
+
+model_xgb$bestTune
+#  nrounds max_depth eta gamma colsample_bytree min_child_weight subsample
+# 6     250         6 0.3     0                1                5       0.6
+
+# Predict interest rate on the test data
+test$predicted_int_rate <- predict(model_xgb, newdata = test)
+
+# Calculate MAE
+mae <- mean(abs(test$int_rate - test$predicted_int_rate))
+
+# Calculate MSE
+mse <- mean((test$int_rate - test$predicted_int_rate)^2)
+
+# Calculate RMSE
+rmse <- sqrt(mean((test$int_rate - test$predicted_int_rate)^2))
+
+# Calculate R-squared
+sst <- sum((test$int_rate - mean(test$int_rate))^2)  # Total Sum of Squares
+sse <- sum((test$int_rate - test$predicted_int_rate)^2)  # Sum of Squared Errors
+r_squared <- 1 - (sse / sst)
+
+# Display metrics
+cat("MAE:", mae, "\nMSE:", mse, "\nRMSE:", rmse, "\nR-squared:", r_squared, "\n") # MAE: 2.27048, MSE: 8.358999, RMSE: 2.891193, R-squared: 0.5635326 
+
+# Generate predictions for all applications (including joint)
+LC_Cleaned$predicted_int_rate <- predict(model_xgb, newdata = LC_Cleaned)
+
+# Calculate MAE
+mae <- mean(abs(LC_Cleaned$int_rate - LC_Cleaned$predicted_int_rate))
+
+# Calculate MSE
+mse <- mean((LC_Cleaned$int_rate - LC_Cleaned$predicted_int_rate)^2)
+
+# Calculate RMSE
+rmse <- sqrt(mean((LC_Cleaned$int_rate - LC_Cleaned$predicted_int_rate)^2))
+
+# Calculate R-squared
+sst <- sum((LC_Cleaned$int_rate - mean(LC_Cleaned$int_rate))^2)  # Total Sum of Squares
+sse <- sum((LC_Cleaned$int_rate - LC_Cleaned$predicted_int_rate)^2)  # Sum of Squared Errors
+r_squared <- 1 - (sse / sst)
+
+# Display metrics
+cat("MAE:", mae, "\nMSE:", mse, "\nRMSE:", rmse, "\nR-squared:", r_squared, "\n") # MAE: 2.199357, MSE: 7.856224, RMSE: 2.802896, R-squared: 0.5908537
+
+
+
 
 
 lm_1 <- lm(int_rate ~ . , data = train)
@@ -735,10 +800,15 @@ str(LC_Cleaned)
 randomforest_LC <- randomForest(int_rate ~ ., train, mtry=30, importance =TRUE, ntree=600)
 summary(randomforest_LC)
 
+
+
+
+
+
 ##############    Predict interest rate   ##########################
 
 # Predict interest rate on the test data
-test$predicted_int_rate <- predict(tree_LC.Con, newdata = test)
+test$predicted_int_rate <- predict(model_xgb, newdata = test)
 
 # Calculate MAE
 mae <- mean(abs(test$int_rate - test$predicted_int_rate))
@@ -809,39 +879,13 @@ r_squared <- 1 - (sse / sst)
 # Display metrics
 cat("MAE:", mae, "\nMSE:", mse, "\nRMSE:", rmse, "\nR-squared:", r_squared, "\n")
 
-# XGBTree
-set.seed(1)
-xgbGrid <-  expand.grid(nrounds = c(50, 75, 100, 150, 200, 250, 500, 1000, 1500, 2000, 5000),
-                        max_depth = c(6, 9, 12, 15, 21),
-                        eta = c(0.3),
-                        gamma = c(0),
-                        colsample_bytree = c(1.0),
-                        min_child_weight = c(5),
-                        subsample = c(0.6))
-
-model_xgb <- train(int_rate ~ .,
-                   data = train,
-                   method = "xgbTree",
-                   trControl = trainControl(method = "repeatedcv", 
-                                            number = 5, 
-                                            repeats = 1, 
-                                            verboseIter = TRUE),
-                   tuneGrid = xgbGrid,
-                   verbose = 1)
-model_xgb
-
-model_xgb$bestTune
-
-head(predicted_xgb)
-summary(predicted_xgb)
-
 
 
 ##############   Step 5 - Post-Processing (apply business rules)   ##########################
 
 # Predict interest rate for the joint applications dataset using the model trained on individual applications
 LC_Cleaned_application_type_joint <- LC_Cleaned_application_type_joint %>%
-  mutate(predicted_int_rate = predict(lm_all, newdata = LC_Cleaned_application_type_joint))
+  mutate(predicted_int_rate = predict(model_xgb, newdata = LC_Cleaned_application_type_joint))
 
 # Apply business rules for final interest rate on joint applications
 LC_Cleaned_application_type_joint <- LC_Cleaned_application_type_joint %>%
