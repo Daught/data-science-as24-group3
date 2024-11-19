@@ -50,7 +50,7 @@ data <- read.csv2(dataset_file_path, header = TRUE, row.names=NULL, sep=";")
 
 LC_Data <- data # make a copy of the original data set, so that we dont mess with it
 static_seed_value = 1
-
+train_proportion <- 0.8
 
 
 ##############   Step 2 - Train Test Split Data                               ##########################
