@@ -1,66 +1,170 @@
+# Install the 'scales' package if not already installed
+#install.packages("scales")
+# Load the library
+library(scales)
 library(corrplot)
 library(tidyverse)
 library(fastDummies)
 
+clean_column <- function(data, 
+                         column_name, 
+                         k = 5, 
+                         outlier_factor = 1.5, 
+                         is_ordered_factor = FALSE,
+                         order_levels = NULL,
+                         remove_outliers=FALSE, 
+                         onehot_encode = FALSE) {
+  # Step 1: Remove rows with missing values in the specified column only
+  data <- data[!is.na(data[[column_name]]), ]
+  # Step 2: Impute missing values only in the specified column (if any remain after filtering)
+  if (is.numeric(data[[column_name]])) {
+    # Impute missing values with mean for numeric columns
+    # data[[column_name]][is.na(data[[column_name]])] <- mean(data[[column_name]], na.rm = TRUE)
+    # Apply kNN imputation to the specified column if it has missing values
+    if (any(is.na(data[[column_name]]))) {
+      data[[column_name]] <- kNN(data, variable = column_name, k = k, imp_var = FALSE)[[column_name]]
+    }
+  } else if (is.character(data[[column_name]])) {
+    # Drop missing character values
+    data <- data[!is.na(data[[column_name]]), ]
+    
+    if (onehot_encode){
+      data <- dummy_cols(data, select_columns=column_name, remove_selected_columns = TRUE)
+    }
+    else{
+      # Convert the remaining column to factor
+      data[[column_name]] <- as.factor(data[[column_name]])
+    }
+  }
+  # Step 3: Convert to ordered factor if specified and if it is a factor
+  if (is_ordered_factor && is.factor(data[[column_name]])) {
+    data[[column_name]] <- as.integer(factor(data[[column_name]], ordered = TRUE, levels = order_levels))
+  }
+  # Step 4: Check if the column is a single-level factor and throw an error if so
+  if (is.factor(data[[column_name]]) && nlevels(data[[column_name]]) <= 1) {
+    data <- data[!is.na(data[[column_name]]), ]
+    print("Specified column has only one level after cleaning, no information remaining in this column, we drop it.")
+  }
+  # Step 5: Remove outliers in the specified column only if it is numeric
+  if (remove_outliers && is.numeric(data[[column_name]])) {
+    Q1 <- quantile(data[[column_name]], 0.25, na.rm = TRUE)
+    Q3 <- quantile(data[[column_name]], 0.75, na.rm = TRUE)
+    IQR <- Q3 - Q1
+    lower_bound <- Q1 - outlier_factor * IQR
+    upper_bound <- Q3 + outlier_factor * IQR
+    data <- data[data[[column_name]] >= lower_bound & data[[column_name]] <= upper_bound, ]
+  }
+  # Step 6: Normalize the specified column if it is numeric
+  if (is.numeric(data[[column_name]])) {
+    data[[column_name]] <- rescale(data[[column_name]], to = c(0, 1))
+  }
+  return(data)
+}
+
+
 # Load the CSV file into R
-data <- read.csv("ressources/LCdata.csv", sep = ";")
+data <- read.csv("ressources/Dataset-part-2.csv", sep = ",")
 
 summary(data)
 
-
+str(data)
 # Raw data analysis
 
 # TARGET int_rate: Interest Rate on the loan. Predicting is task.
-summary(data$int_rate)
-
+summary(data$status)
+str(data$status)
 
 # Removing -> Not relevant
 # 
 # id: A unique LC assigned ID for the loan listing.
-# member_id: A unique LC assigned Id for the borrower member.
-# emp_title: str - The job title supplied by the Borrower when applying for the loan.* -> Is free text and not usable this way.
-# url: str - URL for the LC page with listing data. -> URL for the loan on the website. Can't be used.
-# desc: str - Loan description provided by the borrower. -> free text
-# title: str - The loan title provided by the borrower -> free text
-
-
-# Unlikely relevant:
-# loan_status: The interest rate is given at the beginning and the whole duration of the loan. Therefore the status is irrelevant.
-# recoveries: post charge off gross recovery. Recoveries 
-# collection_recovery_fee: post charge off collection fee.
-
-# Removed because not yet know how to handle:
-# Do these make sense? And if yes how handle?
-# earliest_cr_line: str - The month the borrower's earliest reported credit line was opened.
-# last_pymnt_d: Last month payment was received.
-# next_pymnt_d: Next scheduled payment date.
-# last_credit_pull_d: The most recent month LC pulled credit for this loan.
-# issue_d: The month which the loan was funded.
-
-# What approach to choose to handle the address data?
-# addr_state: str of 2 characters - The state provided by the borrower in the loan application
-# zip_code: str The first 3 numbers of the zip code provided by the borrower in the loan application.
-
 
 # ------------------------------------------------------------------------------
 # Removing columns
 
-columns_to_remove <- c("id",
-                       "member_id",
-                       "emp_title",
-                       "url",
-                       "desc",
-                       "title",
-                       "loan_status",
-                       "addr_state",
-                       "zip_code",
-                       "earliest_cr_line",
-                       "issue_d",
-                       "last_pymnt_d",
-                       "next_pymnt_d",
-                       "last_credit_pull_d")
+columns_to_remove <- c("ID")
 
 data <- data[ , !(names(data) %in% columns_to_remove)]
+
+# CODE_GENDER
+# data seems fine. No missing values and all data is binary. Therefore onehot encoding.
+str(data$CODE_GENDER)
+summary(data$CODE_GENDER)
+
+data <- clean_column(data, "CODE_GENDER", onehot_encode = TRUE)
+
+# FLAG_OWN_CAR
+# data seems fine. No missing values and all data is binary. Therefore onehot encoding.
+str(data$FLAG_OWN_CAR)
+summary(data$FLAG_OWN_CAR)
+
+data <- clean_column(data, "FLAG_OWN_CAR", onehot_encode = TRUE)
+
+# FLAG_OWN_REALTY
+# data seems fine. No missing values and all data is binary. Therefore onehot encoding.
+str(data$FLAG_OWN_REALTY)
+summary(data$FLAG_OWN_REALTY)
+
+data <- clean_column(data, "FLAG_OWN_REALTY", onehot_encode = TRUE)
+
+# CNT_CHILDREN
+# Ordered values and Numeric. Third quantile is 1 so we do not use our function to remove outlieres here. We do it manually.
+str(data$CNT_CHILDREN)
+summary(data$CNT_CHILDREN)
+table(data$CNT_CHILDREN)
+# We see suspecting values that people have 6, 7, 12, 19 Children
+poeple_with_lot_children <- filter(data, CNT_CHILDREN >=6 )
+poeple_with_lot_children$AGE <- poeple_with_lot_children$DAYS_BIRTH / (-365)
+
+# Scatterplot
+plot(x = poeple_with_lot_children$AGE, 
+     y = poeple_with_lot_children$CNT_CHILDREN, 
+     main = "Scatterplot of column_x vs column_y", 
+     xlab = "Age", 
+     ylab = "amount of children", 
+     col = "blue", 
+     pch = 19)  # Customize point style
+# we see here that the persons with 19 and 12 children above the age of 30 and 36 seems suspicious and we drop them.
+data <- data %>% filter(CNT_CHILDREN < 12)
+
+# We use our cleaning function only for normalization 
+data <- clean_column(data, "CNT_CHILDREN")
+
+# AMT_INCOME_TOTAL
+str(data$AMT_INCOME_TOTAL)
+summary(data$AMT_INCOME_TOTAL)
+# we have ouliers here but in praxis it is possible to have an anual income of over 6750000. We do not drop them
+
+data <- clean_column(data, "AMT_INCOME_TOTAL")
+
+# NAME_INCOME_TYPE
+str(data$NAME_INCOME_TYPE)
+summary(data$NAME_INCOME_TYPE)
+
+# data seems fine. No missing values and all data is categorical (nominal). Therefore onehot encoding.
+data <- clean_column(data, "NAME_INCOME_TYPE", onehot_encode = TRUE)
+
+# NAME_EDUCATION_TYPE
+str(data$NAME_EDUCATION_TYPE)
+summary(data$NAME_EDUCATION_TYPE)
+table(data$NAME_EDUCATION_TYPE)
+levels <- c("Lower secondary", "Secondary / secondary special", "Incomplete higher", "Higher education", "Academic degree")
+# data seems fine. No missing values and all data is categorical (nominal). Therefore onehot encoding.
+data <- clean_column(data, "NAME_EDUCATION_TYPE", is_ordered_factor = TRUE, order_levels = levels)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
