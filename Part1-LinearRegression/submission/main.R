@@ -45,7 +45,7 @@ library('xgboost')
 library('doParallel')
 
 # load data set
-dataset_file_path = "./submission/data/LCData.csv"
+dataset_file_path = "./submission/data/LCdata_preprocessed.csv"
 data <- read.csv2(dataset_file_path, header = TRUE, row.names=NULL, sep=";")
 
 LC_Data <- data # make a copy of the original data set, so that we dont mess with it

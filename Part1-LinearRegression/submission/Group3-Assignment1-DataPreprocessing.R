@@ -550,4 +550,4 @@ LC_Cleaned$inq_last_12m[is.na(LC_Cleaned$inq_last_12m)] <- 0
 ##############   Step 2 - Preprocessed Data Export                                    ##########################
 
 # Export the data frame to a CSV file
-write.csv(data, file = "./submission/data/LCdata.csv", row.names = FALSE)
+write.csv2(LC_Cleaned, file = "./submission/data/LCdata_preprocessed.csv", row.names = TRUE)
