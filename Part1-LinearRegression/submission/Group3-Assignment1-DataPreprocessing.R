@@ -47,7 +47,7 @@ library('doParallel')
 
 # load data set
 #data <- read.csv2("ressources/LCdata.csv", header = TRUE, row.names=NULL, sep=";")
-dataset_file_path = "../ressources/LCdata.csv"
+dataset_file_path = "./ressources/LCdata.csv"
 data <- read.csv2(dataset_file_path, header = TRUE, row.names=NULL, sep=";")
 
 LC <- data # make a copy of the original data set, so that we dont mess with it
@@ -484,7 +484,7 @@ LC_Cleaned <- subset(LC_Cleaned, select = -total_rev_hi_lim)
 
 
 # 59. open_acc_6m: Number of open trades in last 6 months.
- LC_Cleaned <- subset(LC_Cleaned, select = -open_acc_6m)
+LC_Cleaned <- subset(LC_Cleaned, select = -open_acc_6m)
 
 
 # 60. open_il_6m: Number of currently active installment trades
@@ -550,4 +550,4 @@ LC_Cleaned$inq_last_12m[is.na(LC_Cleaned$inq_last_12m)] <- 0
 ##############   Step 2 - Preprocessed Data Export                                    ##########################
 
 # Export the data frame to a CSV file
-write.csv(data, file = "./data/LCdata.csv", row.names = FALSE)
+write.csv(data, file = "./submission/data/LCdata.csv", row.names = FALSE)
