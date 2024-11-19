@@ -1,4 +1,4 @@
-#####################################################
+##########################################################
 # Data Science - AS24
 # DS-Assignment: Part1
 # Part 1: Logistic Regression
@@ -6,9 +6,9 @@
 # Firat Turan firat.turan@students.fhnw.ch
 # Sascha Frossard sascha.frossard@students.fhnw.ch
 # Sebastian Fernandez sebastian.fernandez@students.fhnw.ch
-#####################################################
+##########################################################
 # Assignment for DataScience Course at Olten, Switzerland
-#####################################################
+##########################################################
 
 
 ##############   1. Preliminaries                                               ##########################
