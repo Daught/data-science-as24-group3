@@ -47,7 +47,7 @@ library('doParallel')
 
 # load data set
 #data <- read.csv2("ressources/LCdata.csv", header = TRUE, row.names=NULL, sep=";")
-dataset_file_path = "./ressources/LCdata.csv"
+dataset_file_path = "../ressources/LCdata.csv"
 data <- read.csv2(dataset_file_path, header = TRUE, row.names=NULL, sep=";")
 
 LC <- data # make a copy of the original data set, so that we dont mess with it
