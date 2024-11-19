@@ -1,4 +1,4 @@
-#####################################################
+##########################################################
 # Data Science - AS24
 # DS-Assignment: Part1
 # Part 1: Logistic Regression
@@ -6,9 +6,9 @@
 # Firat Turan firat.turan@students.fhnw.ch
 # Sascha Frossard sascha.frossard@students.fhnw.ch
 # Sebastian Fernandez sebastian.fernandez@students.fhnw.ch
-#####################################################
+##########################################################
 # Assignment for DataScience Course at Olten, Switzerland
-#####################################################
+##########################################################
 
 
 ##############   1. Preliminaries                                               ##########################
@@ -484,7 +484,7 @@ LC_Cleaned <- subset(LC_Cleaned, select = -total_rev_hi_lim)
 
 
 # 59. open_acc_6m: Number of open trades in last 6 months.
- LC_Cleaned <- subset(LC_Cleaned, select = -open_acc_6m)
+LC_Cleaned <- subset(LC_Cleaned, select = -open_acc_6m)
 
 
 # 60. open_il_6m: Number of currently active installment trades
@@ -550,4 +550,4 @@ LC_Cleaned$inq_last_12m[is.na(LC_Cleaned$inq_last_12m)] <- 0
 ##############   Step 2 - Preprocessed Data Export                                    ##########################
 
 # Export the data frame to a CSV file
-write.csv(data, file = "./submission/data/LCdata.csv", row.names = FALSE)
+write.csv2(LC_Cleaned, file = "./submission/data/LCdata_preprocessed.csv", row.names = TRUE)
