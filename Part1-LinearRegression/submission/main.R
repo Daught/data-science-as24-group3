@@ -27,6 +27,8 @@ if(!require("glmnet")) install.packages("glmnet", dependencies = TRUE)
 if(!require("earth")) install.packages("earth", dependencies = TRUE)
 if(!require("gbm")) install.packages("gbm", dependencies = TRUE)
 if(!require("doParallel")) install.packages("doParallel", dependencies = TRUE)
+if(!require("randomForest")) install.packages("tree", dependencies = TRUE)
+if(!require("vif")) install.packages("car", dependencies = TRUE)
 
 # Load packages
 library('dplyr')
@@ -43,6 +45,8 @@ library('earth')
 library('gbm')
 library('xgboost')
 library('doParallel')
+library('car')
+library('randomForest')
 
 # load data set
 dataset_file_path = "./submission/data/LCdata_preprocessed.csv"
@@ -52,7 +56,6 @@ LC_Data <- data # make a copy of the original data set, so that we dont mess wit
 static_seed_value = 1
 train_proportion <- 0.8
 
-
 ##############   Step 2 - Train Test Split Data                               ##########################
 set.seed(static_seed_value)
 train_indices <- sample(1:nrow(LC_Data), size = floor(train_proportion * nrow(data))) # Create indices for training data
@@ -61,6 +64,87 @@ train_indices <- sample(1:nrow(LC_Data), size = floor(train_proportion * nrow(da
 train <- LC_Data[train_indices, ]  # Training data (70%)
 test <- LC_Data[-train_indices, ]  # Testing data (30%)
 watchlist = list(train=train, test=test)
+
+
+##############   Final Model (XGBBoost)                                         ##########################
+
+# Step 1: Define the grid of hyperparameters for tuning
+xgbGrid <- expand.grid(
+  nrounds = c(250),
+  max_depth = c(6),
+  eta = c(0.3),
+  gamma = c(0),
+  colsample_bytree = c(1.0),
+  min_child_weight = c(5),
+  subsample = c(0.6)
+)
+
+# Step 2: Train the XGBoost model
+candidate_xgb_model_full <- train(
+  int_rate ~ .,
+  data = train,
+  method = "xgbTree",
+  trControl = trainControl(
+    method = "repeatedcv",
+    number = 5,
+    repeats = 1,
+    verboseIter = TRUE
+  ),
+  tuneGrid = xgbGrid,
+  verbose = 1
+)
+
+# Display model summary
+candidate_xgb_model_full
+candidate_xgb_model_full$bestTune  # Optimal hyperparameters
+
+# Step 3: Predict interest rates on the test data
+test$predicted_int_rate <- predict(candidate_xgb_model_full, newdata = test)
+
+# Step 4: Evaluate performance on the test set
+# Mean Absolute Error (MAE)
+test_mae <- mean(abs(test$int_rate - test$predicted_int_rate))
+
+# Mean Squared Error (MSE)
+test_mse <- mean((test$int_rate - test$predicted_int_rate)^2)
+
+# Root Mean Squared Error (RMSE)
+test_rmse <- sqrt(test_mse)
+
+# R-squared
+test_sst <- sum((test$int_rate - mean(test$int_rate))^2)  # Total Sum of Squares
+test_sse <- sum((test$int_rate - test$predicted_int_rate)^2)  # Sum of Squared Errors
+test_r_squared <- 1 - (test_sse / test_sst)
+
+# Display performance metrics for test set
+cat("Test Set Metrics:\n")
+cat("MAE:", test_mae, "\nMSE:", test_mse, "\nRMSE:", test_rmse, "\nR-squared:", test_r_squared, "\n")
+
+# Step 5: Generate predictions for the full dataset (including joint applications)
+LC_Data$predicted_int_rate <- predict(candidate_xgb_model_full, newdata = LC_Data)
+
+# Evaluate performance on the full dataset
+# Mean Absolute Error (MAE)
+full_mae <- mean(abs(LC_Data$int_rate - LC_Data$predicted_int_rate))
+
+# Mean Squared Error (MSE)
+full_mse <- mean((LC_Data$int_rate - LC_Data$predicted_int_rate)^2)
+
+# Root Mean Squared Error (RMSE)
+full_rmse <- sqrt(full_mse)
+
+# R-squared
+full_sst <- sum((LC_Data$int_rate - mean(LC_Data$int_rate))^2)  # Total Sum of Squares
+full_sse <- sum((LC_Data$int_rate - LC_Data$predicted_int_rate)^2)  # Sum of Squared Errors
+full_r_squared <- 1 - (full_sse / full_sst)
+
+# Display performance metrics for the full dataset
+cat("Full Dataset Metrics:\n")
+cat("MAE:", full_mae, "\nMSE:", full_mse, "\nRMSE:", full_rmse, "\nR-squared:", full_r_squared, "\n")
+
+
+
+
 
 
 
@@ -102,7 +186,7 @@ summary(candidate_lm_model_refined_4)  # MSE: 11.53331
 set.seed(static_seed_value)  # Set seed for reproducibility
 candidate_rf_model <- randomForest(
   int_rate ~ ., 
-  data = X_train, 
+  data = train, 
   mtry = 6, 
   importance = TRUE, 
   ntree = 600
@@ -366,7 +450,6 @@ xgb_model <- train(
 xgb_predictions <- predict(xgb_model, testData)
 xgb_mse <- calculate_mse(xgb_predictions, testData$int_rate)
 cat("XGBoost MSE:", xgb_mse, "\n")
-
 
 # Step 5: Save the best model
 best_model <- gbm_model  # Update based on the model with the lowest MSE
