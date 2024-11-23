@@ -59,8 +59,11 @@ export_type <- "export"   # Example parameter for analysis type
 filter_value <- 100         # Example parameter for filtering
 dataset_file_path <- "./ressources/LCdata.csv"
 
-dataset_file_path <- perform_data_preprocessing(dataset_file_path, export_type, filter_value)
-data <- read.csv2(dataset_file_path, header = TRUE, row.names=NULL, sep=";")
+LC_Processed <- perform_data_preprocessing(dataset_file_path, export_type, filter_value)
+LC_Processed_File_Path = LC_Processed$file_path
+LC_Processed_Application_Joint = LC_Processed$data_application_type_joint
+
+data <- read.csv2(LC_Processed_File_Path, header = TRUE, row.names=NULL, sep=";")
 
 data <- subset(data, select = -X)
 
@@ -471,44 +474,3 @@ saveRDS(best_model, "best_model.rds")
 
 # Step 6: Stop parallel processing
 stopCluster(cl)
-
-
-
-##############   Step 5 - Post-Processing (apply business rules)                ##########################
-# Predict interest rate for the joint applications dataset using the model trained on individual applications
-LC_Data_application_type_joint <- LC_Data_application_type_joint %>%
-  mutate(predicted_int_rate = predict(lm_all, newdata = LC_Data_application_type_joint))
-
-# Apply business rules for final interest rate on joint applications
-LC_Data_application_type_joint <- LC_Data_application_type_joint %>%
-  mutate(
-    final_int_rate = case_when(
-      # Rule 1: JOINT & Source Verified
-      verification_status_joint == "Source Verified" ~ predicted_int_rate,
-      
-      # Rule 2: JOINT & Verified - increase interest rate by 2%
-      verification_status_joint == "Verified" ~ predicted_int_rate * 1.02,
-      
-      # Rule 3: JOINT & Not Verified - set to NA to indicate decline
-      verification_status_joint == "Not Verified" ~ NA_real_,
-      
-      # Default case, if needed (e.g., to handle any unexpected values)
-      TRUE ~ predicted_int_rate
-    )
-  )
-# Filter out rows with NA in final_int_rate (since they are marked as declined and don't have a rate to compare)
-comparison_data <- LC_Data_application_type_joint %>% filter(!is.na(final_int_rate))
-
-# Calculate Mean Absolute Error (MAE)
-mae <- mean(abs(comparison_data$int_rate - comparison_data$final_int_rate))
-
-# Calculate Mean Squared Error (MSE)
-mse <- mean((comparison_data$int_rate - comparison_data$final_int_rate)^2)
-
-# Calculate Root Mean Squared Error (RMSE)
-rmse <- sqrt(mse)
-
-# Print the comparison metrics
-cat("Mean Absolute Error (MAE):", mae, "\n")
-cat("Mean Squared Error (MSE):", mse, "\n")
-cat("Root Mean Squared Error (RMSE):", rmse, "\n")

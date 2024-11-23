@@ -451,15 +451,7 @@ perform_data_preprocessing <- function(dataset_file_path, analysis_type) {
       # - Business rules offer a practical way to account for joint applications in a manner consistent with lending policies, which may improve real-world applicability.
       # - This approach avoids potential distortion from imputation and the complexity of training separate models, which isn’t feasible given the data volume.
 
-      # Train the Model on Individual Applications Only
-      # Create a new data frame with only the "JOINT" application type rows
-      LC_Cleaned_application_type_joint <- LC_Cleaned %>% 
-        filter(application_type == "JOINT")
-
-      # Remove "JOINT" application type rows from the original LC_Cleaned
-      LC_Cleaned <- LC_Cleaned %>% 
-        filter(application_type == "INDIVIDUAL") %>%
-        select(-c('annual_inc_joint', 'dti_joint', 'verification_status_joint', 'application_type'))
+      # !!!!!!! HANDLING APPLICATION_TYPE IS DONE AT THE END OF PREPROCESSING !!!!!!!!
 
       # 52. annual_inc_joint
       # This feature is dropped, as we implement business logic (at the end of this cleanup section)
@@ -548,16 +540,37 @@ perform_data_preprocessing <- function(dataset_file_path, analysis_type) {
       #LC_Cleaned <- subset(LC_Cleaned, select = -inq_last_12m)
       LC_Cleaned$inq_last_12m[is.na(LC_Cleaned$inq_last_12m)] <- 0
 
+
+      # 51. application_type: Indicates whether the loan is an individual application or a joint application with two co-borrowers
+
+      # Train the Model on Individual Applications Only
+      # Create a new data frame with only the "JOINT" application type rows
+      LC_Cleaned_application_type_joint <- LC_Cleaned %>%
+        filter(application_type == "JOINT") 
+        #%>%
+        #select(c('application_type', 'verification_status_joint', 'annual_inc_joint', 'dti_joint'))
+
+      # Remove "JOINT" application type rows from the original LC_Cleaned
+      LC_Cleaned <- LC_Cleaned %>% 
+        filter(application_type == "INDIVIDUAL") %>%
+        select(-c('annual_inc_joint', 'dti_joint', 'verification_status_joint', 'application_type'))
+
       ##############   Step 2 - Preprocessed Data Export                                    ##########################
 
       if (analysis_type == "export") {
           # Export the data frame to a CSV file
           ouput_file_path = "./submission/data/LCdata_preprocessed.csv"
           write.csv2(LC_Cleaned, file = ouput_file_path, row.names = TRUE)
-          return(ouput_file_path)
+          return(list(
+              file_path = ouput_file_path,
+              data_application_type_joint = LC_Cleaned_application_type_joint
+          ))          
       } else if (analysis_type == "return") {  
           # Return the cleaned dataframe
-          return(LC_Cleaned)
+          return(list(
+            data = LC_Cleaned,
+            data_application_type_joint = LC_Cleaned_application_type_joint
+          ))          
       } else {
           stop("Unsupported analysis type:", analysis_type)
       }
