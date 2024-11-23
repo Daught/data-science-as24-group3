@@ -52,24 +52,24 @@ if (!exists("model_file_path") || is.null(model_file_path) || model_file_path ==
 
 
 cat("Predict...\n")
-LC_Final$predicted_int_rate <- predict(model, newdata = LC_Final)
+LC_Data$predicted_int_rate <- predict(model, newdata = LC_Data)
 
 
 ##############   Step 5: Evaluate                                                          ##########################
 
 # Step 4: Evaluate performance on the test set
 # Mean Absolute Error (MAE)
-test_mae <- mean(abs(LC_Final$int_rate - LC_Final$predicted_int_rate))
+test_mae <- mean(abs(LC_Data$int_rate - LC_Data$predicted_int_rate))
 
 # Mean Squared Error (MSE)
-test_mse <- mean((LC_Final$int_rate - LC_Final$predicted_int_rate)^2)
+test_mse <- mean((LC_Data$int_rate - LC_Data$predicted_int_rate)^2)
 
 # Root Mean Squared Error (RMSE)
 test_rmse <- sqrt(test_mse)
 
 # R-squared
-test_sst <- sum((LC_Final$int_rate - mean(LC_Final$int_rate))^2)  # Total Sum of Squares
-test_sse <- sum((LC_Final$int_rate - LC_Final$predicted_int_rate)^2)  # Sum of Squared Errors
+test_sst <- sum((LC_Data$int_rate - mean(LC_Data$int_rate))^2)  # Total Sum of Squares
+test_sse <- sum((LC_Data$int_rate - LC_Data$predicted_int_rate)^2)  # Sum of Squared Errors
 test_r_squared <- 1 - (test_sse / test_sst)
 
 # Display performance metrics for test set
