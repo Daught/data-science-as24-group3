@@ -28,7 +28,7 @@ if(!require("earth")) install.packages("earth", dependencies = TRUE)
 if(!require("gbm")) install.packages("gbm", dependencies = TRUE)
 if(!require("doParallel")) install.packages("doParallel", dependencies = TRUE)
 if(!require("randomForest")) install.packages("tree", dependencies = TRUE)
-#if(!require("vif")) install.packages("car", dependencies = TRUE)
+if(!require("car")) install.packages("car", dependencies = TRUE)
 
 # Load packages
 library('dplyr')
@@ -45,7 +45,7 @@ library('earth')
 library('gbm')
 library('xgboost')
 library('doParallel')
-#library('car')
+library('car')
 library('randomForest')
 
 # load data set
@@ -157,6 +157,13 @@ cat("Full Dataset Metrics:\n")
 cat("MAE:", full_mae, "\nMSE:", full_mse, "\nRMSE:", full_rmse, "\nR-squared:", full_r_squared, "\n")
 
 saveRDS(candidate_xgb_model_full, "./submission/data/Group03_Final-Model_XGBoost.rds")
+
+
+
+
+
+
+
 
 
 
