@@ -83,7 +83,7 @@ multipliers <- seq(0.5, 2.0, by = 0.01) # Adjust range and step size as needed
 # Loop over each multiplier
 for (multiplier in multipliers) {
   # Apply business rules with the current multiplier
-  LC_Processed_Application_Joint <- LC_Processed_Application_Joint %>%
+  LC_Processed_Application_Joint_TMP <- LC_Processed_Application_Joint %>%
     mutate(
       final_predicted_int_rate = case_when(
         verification_status_joint == "Source Verified" ~ LC_Processed_Application_Joint$predicted_int_rate,
@@ -94,12 +94,15 @@ for (multiplier in multipliers) {
     )
   
   # Filter out rows with NA in final_predicted_int_rate
-  comparison_data <- LC_Processed_Application_Joint %>% filter(!is.na(final_predicted_int_rate))
+  comparison_data <- LC_Processed_Application_Joint_TMP %>% filter(!is.na(final_predicted_int_rate))
   
-  merged_data <- merge(comparison_data, LC_Processed_Data, by = "common_column")
+  comparison_data <- comparison_data %>%
+    select(-c(application_type, annual_inc_joint, dti_joint, verification_status_joint, predicted_int_rate))
+  
+  combined_dataframe <- rbind(comparison_data, LC_Processed_Data)
   
   # Calculate MSE for the current multiplier
-  mse <- mean((merged_data$int_rate - merged_data$final_predicted_int_rate)^2, na.rm = TRUE)
+  mse <- mean((combined_dataframe$int_rate - combined_dataframe$final_predicted_int_rate)^2, na.rm = TRUE)
   
   # Update the best MSE and corresponding multiplier if current MSE is lower
   if (mse < best_mse) {
