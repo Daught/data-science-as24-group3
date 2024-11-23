@@ -56,10 +56,9 @@ cat("Running preprocessing...\n")
 export_type <- "export"   # Example parameter for analysis type 
                             #       export = writes csv to ./submission/data/LCdata_preprocessed.csv
                             #       return = returns the preprocessed dataframe
-filter_value <- 100         # Example parameter for filtering
 dataset_file_path <- "./ressources/LCdata.csv"
 
-LC_Processed <- perform_data_preprocessing(dataset_file_path, export_type, filter_value)
+LC_Processed <- perform_data_preprocessing(dataset_file_path, export_type)
 LC_Processed_File_Path = LC_Processed$file_path
 LC_Processed_Application_Joint = LC_Processed$data_application_type_joint
 
