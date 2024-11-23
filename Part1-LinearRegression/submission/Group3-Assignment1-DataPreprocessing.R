@@ -240,7 +240,7 @@ perform_data_preprocessing <- function(dataset_file_path, analysis_type) {
 
 
       # 25. 'earliest_cr_line': The month the borrower's earliest reported credit line was opened.
-      LC_Cleaned <- subset(LC_Cleaned, select = -earliest_cr_line)
+       LC_Cleaned <- subset(LC_Cleaned, select = -earliest_cr_line)
       
       # Remove any leading or trailing whitespace and any non-printing characters
       #LC_Cleaned$earliest_cr_line <- trimws(LC_Cleaned$earliest_cr_line)
@@ -262,6 +262,11 @@ perform_data_preprocessing <- function(dataset_file_path, analysis_type) {
 
       # Drop rows with NA in the 'earliest_cr_line_numeric' column
       #LC_Cleaned <- LC_Cleaned[!is.na(LC_Cleaned$earliest_cr_line_numeric), ]
+      #LC_Cleaned <- subset(LC_Cleaned, select = -earliest_cr_line)
+      #LC_Cleaned <- subset(LC_Cleaned, select = -earliest_cr_line_date)
+      #LC_Cleaned <- subset(LC_Cleaned, select = -earliest_cr_line_char)
+      #LC_Cleaned <- subset(LC_Cleaned, select = -earliest_cr_line_year)
+      #LC_Cleaned <- subset(LC_Cleaned, select = -earliest_cr_line_numeric)
 
 
       # 26. 'inq_last_6mths': The number of inquiries in past 6 months (excluding auto and mortgage inquiries)data.frame(..., row.names = NULL, check.rows = FALSE, check.names = TRUE, stringsAsFactors = default.stringsAsFactors())
