@@ -44,7 +44,7 @@ library('gbm')
 library('xgboost')
 library('doParallel')
 
-perform_data_preprocessing <- function(dataset_path, analysis_type, filter_value) {
+perform_data_preprocessing <- function(dataset_file_path, analysis_type) {
 
       data <- read.csv2(dataset_file_path, header = TRUE, row.names=NULL, sep=";")
 
@@ -240,26 +240,28 @@ perform_data_preprocessing <- function(dataset_path, analysis_type, filter_value
 
 
       # 25. 'earliest_cr_line': The month the borrower's earliest reported credit line was opened.
+      LC_Cleaned <- subset(LC_Cleaned, select = -earliest_cr_line)
+      
       # Remove any leading or trailing whitespace and any non-printing characters
-      LC_Cleaned$earliest_cr_line <- trimws(LC_Cleaned$earliest_cr_line)
+      #LC_Cleaned$earliest_cr_line <- trimws(LC_Cleaned$earliest_cr_line)
 
-      LC_Cleaned$earliest_cr_line <- gsub("[^[:print:]]", "", LC_Cleaned$earliest_cr_line)
+      #LC_Cleaned$earliest_cr_line <- gsub("[^[:print:]]", "", LC_Cleaned$earliest_cr_line)
 
       # Set locale to English for date conversion to be sure date-conversion is working
-      Sys.setlocale("LC_TIME", "C")  # "C" is used for the default English locale 
-      LC_Cleaned$earliest_cr_line[LC_Cleaned$earliest_cr_line == ""] <- NA # Replace any empty strings with NA
+      #Sys.setlocale("LC_TIME", "C")  # "C" is used for the default English locale 
+      #LC_Cleaned$earliest_cr_line[LC_Cleaned$earliest_cr_line == ""] <- NA # Replace any empty strings with NA
       # Convert earliest_cr_line from "Mon-YYYY" to Date format, assuming the first day of the month
-      LC_Cleaned$earliest_cr_line_date <- as.Date(paste0("01-", LC_Cleaned$earliest_cr_line), format = "%d-%b-%Y")
+      #LC_Cleaned$earliest_cr_line_date <- as.Date(paste0("01-", LC_Cleaned$earliest_cr_line), format = "%d-%b-%Y")
 
       # Conversion to character and then numerical for analysis
-      LC_Cleaned$earliest_cr_line_char <- format(LC_Cleaned$earliest_cr_line_date, "%Y%m")
-      LC_Cleaned$earliest_cr_line_numeric <- as.numeric(LC_Cleaned$earliest_cr_line_char)
+      #LC_Cleaned$earliest_cr_line_char <- format(LC_Cleaned$earliest_cr_line_date, "%Y%m")
+      #LC_Cleaned$earliest_cr_line_numeric <- as.numeric(LC_Cleaned$earliest_cr_line_char)
 
       # Remove the last two digits by dividing by 100 and taking the integer part to get only the year
-      LC_Cleaned$earliest_cr_line_year <- LC_Cleaned$earliest_cr_line_numeric %/% 100
+      #LC_Cleaned$earliest_cr_line_year <- LC_Cleaned$earliest_cr_line_numeric %/% 100
 
       # Drop rows with NA in the 'earliest_cr_line_numeric' column
-      LC_Cleaned <- LC_Cleaned[!is.na(LC_Cleaned$earliest_cr_line_numeric), ]
+      #LC_Cleaned <- LC_Cleaned[!is.na(LC_Cleaned$earliest_cr_line_numeric), ]
 
 
       # 26. 'inq_last_6mths': The number of inquiries in past 6 months (excluding auto and mortgage inquiries)data.frame(..., row.names = NULL, check.rows = FALSE, check.names = TRUE, stringsAsFactors = default.stringsAsFactors())
@@ -545,8 +547,6 @@ perform_data_preprocessing <- function(dataset_path, analysis_type, filter_value
       # 72. inq_last_12m: Number of credit inquiries in past 12 months.
       #LC_Cleaned <- subset(LC_Cleaned, select = -inq_last_12m)
       LC_Cleaned$inq_last_12m[is.na(LC_Cleaned$inq_last_12m)] <- 0
-
-
 
       ##############   Step 2 - Preprocessed Data Export                                    ##########################
 

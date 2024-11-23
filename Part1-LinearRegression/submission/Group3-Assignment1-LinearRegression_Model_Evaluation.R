@@ -28,7 +28,7 @@ if(!require("earth")) install.packages("earth", dependencies = TRUE)
 if(!require("gbm")) install.packages("gbm", dependencies = TRUE)
 if(!require("doParallel")) install.packages("doParallel", dependencies = TRUE)
 if(!require("randomForest")) install.packages("tree", dependencies = TRUE)
-if(!require("vif")) install.packages("car", dependencies = TRUE)
+#if(!require("vif")) install.packages("car", dependencies = TRUE)
 
 # Load packages
 library('dplyr')
@@ -45,7 +45,7 @@ library('earth')
 library('gbm')
 library('xgboost')
 library('doParallel')
-library('car')
+#library('car')
 library('randomForest')
 
 # load data set
@@ -57,13 +57,16 @@ export_type <- "export"   # Example parameter for analysis type
                             #       export = writes csv to ./submission/data/LCdata_preprocessed.csv
                             #       return = returns the preprocessed dataframe
 filter_value <- 100         # Example parameter for filtering
+dataset_file_path <- "./ressources/LCdata.csv"
 
 dataset_file_path <- perform_data_preprocessing(dataset_file_path, export_type, filter_value)
 data <- read.csv2(dataset_file_path, header = TRUE, row.names=NULL, sep=";")
 
+data <- subset(data, select = -X)
+
 LC_Data <- data # make a copy of the original data set, so that we dont mess with it
 static_seed_value = 1
-train_proportion <- 0.8
+train_proportion <- 0.99
 
 ##############   Step 2 - Train Test Split Data                                 ##########################
 set.seed(static_seed_value)
@@ -150,6 +153,11 @@ full_r_squared <- 1 - (full_sse / full_sst)
 # Display performance metrics for the full dataset
 cat("Full Dataset Metrics:\n")
 cat("MAE:", full_mae, "\nMSE:", full_mse, "\nRMSE:", full_rmse, "\nR-squared:", full_r_squared, "\n")
+
+saveRDS(candidate_xgb_model_full, "./submission/data/Group03_Final-Model_XGBoost.rds")
+
+
+
 
 
 

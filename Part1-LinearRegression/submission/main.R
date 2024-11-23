@@ -10,35 +10,24 @@
 # Assignment for DataScience Course at Olten, Switzerland
 ##########################################################
 
-
-##############   1. Preliminaries                                                       ##########################
-
-# Install
-
-
-
-# Load packages
-
-
-
 ##############   Step 2: Environment                                                   ##########################
-model_file_path = 'Group03_Final-Model_XGBoost.RData'
-test_data_file_path = ''
+model_file_path = './submission/data/Group03_Final-Model_XGBoost.rds'
+test_data_file_path = '' # Gwen, please specify your test-data here!
 static_seed_value = 1
 
 
-# Check if the variable 'dataset_file_path' already exists
-dataset_file_path <- test_data_file_path
+# Check if the variable 'dataset_file_path' is set, else take default dataset
 if (!exists("dataset_file_path") || is.null(dataset_file_path) || dataset_file_path == "") {
   dataset_file_path <- "./ressources/LCdata.csv"
   cat("Using default dataset file path:", dataset_file_path, "\n")
 } else {
-  cat("Using existing dataset file path:", dataset_file_path, "\n")
+  dataset_file_path <- test_data_file_path
+  cat("Using testing dataset file path:", dataset_file_path, "\n")
 }
 
 ##############   Step 3: Data Preprocessing                                             ##########################
 
-# Load functions from another R script
+# Load preprocessing-function from another R script
 cat("Sourcing helper functions...\n")
 source("./submission/Group3-Assignment1-DataPreprocessing.R", echo = TRUE, print.eval = TRUE)
 
@@ -46,16 +35,21 @@ cat("Running preprocessing...\n")
 export_type <- "return"   # Example parameter for analysis type 
                             #       export = writes csv to ./submission/data/LCdata_preprocessed.csv
                             #       return = returns the preprocessed dataframe
-filter_value <- 100         # Example parameter for filtering
 
-LC_Final <- perform_data_preprocessing(dataset_file_path, export_type, filter_value)
+LC_Final <- perform_data_preprocessing(dataset_file_path, export_type)
 
 
 ##############   Step 4: Predict                                                          ##########################
 
 # Load the model
-cat("Load model...\n")
-model <- load(model_file_path)
+if (!exists("model_file_path") || is.null(model_file_path) || model_file_path == "") {
+  cat("Unable to load an 'rds' model, variable 'model_file_path' not set, aborting..\n")
+  return()
+} else {
+  model <- readRDS(model_file_path)
+  cat("Load model from file path:", model_file_path, "\n")
+}
+
 
 cat("Predict...\n")
 LC_Final$predicted_int_rate <- predict(model, newdata = LC_Final)
