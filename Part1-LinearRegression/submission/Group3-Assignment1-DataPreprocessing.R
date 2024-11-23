@@ -240,32 +240,32 @@ perform_data_preprocessing <- function(dataset_file_path, analysis_type) {
 
 
       # 25. 'earliest_cr_line': The month the borrower's earliest reported credit line was opened.
-       LC_Cleaned <- subset(LC_Cleaned, select = -earliest_cr_line)
+      #LC_Cleaned <- subset(LC_Cleaned, select = -earliest_cr_line)
       
       # Remove any leading or trailing whitespace and any non-printing characters
-      #LC_Cleaned$earliest_cr_line <- trimws(LC_Cleaned$earliest_cr_line)
+      LC_Cleaned$earliest_cr_line <- trimws(LC_Cleaned$earliest_cr_line)
 
-      #LC_Cleaned$earliest_cr_line <- gsub("[^[:print:]]", "", LC_Cleaned$earliest_cr_line)
+      LC_Cleaned$earliest_cr_line <- gsub("[^[:print:]]", "", LC_Cleaned$earliest_cr_line)
 
       # Set locale to English for date conversion to be sure date-conversion is working
-      #Sys.setlocale("LC_TIME", "C")  # "C" is used for the default English locale 
-      #LC_Cleaned$earliest_cr_line[LC_Cleaned$earliest_cr_line == ""] <- NA # Replace any empty strings with NA
+      Sys.setlocale("LC_TIME", "C")  # "C" is used for the default English locale 
+      LC_Cleaned$earliest_cr_line[LC_Cleaned$earliest_cr_line == ""] <- NA # Replace any empty strings with NA
       # Convert earliest_cr_line from "Mon-YYYY" to Date format, assuming the first day of the month
-      #LC_Cleaned$earliest_cr_line_date <- as.Date(paste0("01-", LC_Cleaned$earliest_cr_line), format = "%d-%b-%Y")
+      LC_Cleaned$earliest_cr_line_date <- as.Date(paste0("01-", LC_Cleaned$earliest_cr_line), format = "%d-%b-%Y")
 
       # Conversion to character and then numerical for analysis
-      #LC_Cleaned$earliest_cr_line_char <- format(LC_Cleaned$earliest_cr_line_date, "%Y%m")
-      #LC_Cleaned$earliest_cr_line_numeric <- as.numeric(LC_Cleaned$earliest_cr_line_char)
+      LC_Cleaned$earliest_cr_line_char <- format(LC_Cleaned$earliest_cr_line_date, "%Y%m")
+      LC_Cleaned$earliest_cr_line_numeric <- as.numeric(LC_Cleaned$earliest_cr_line_char)
 
       # Remove the last two digits by dividing by 100 and taking the integer part to get only the year
-      #LC_Cleaned$earliest_cr_line_year <- LC_Cleaned$earliest_cr_line_numeric %/% 100
+      LC_Cleaned$earliest_cr_line_year <- LC_Cleaned$earliest_cr_line_numeric %/% 100
 
       # Drop rows with NA in the 'earliest_cr_line_numeric' column
-      #LC_Cleaned <- LC_Cleaned[!is.na(LC_Cleaned$earliest_cr_line_numeric), ]
-      #LC_Cleaned <- subset(LC_Cleaned, select = -earliest_cr_line)
-      #LC_Cleaned <- subset(LC_Cleaned, select = -earliest_cr_line_date)
-      #LC_Cleaned <- subset(LC_Cleaned, select = -earliest_cr_line_char)
-      #LC_Cleaned <- subset(LC_Cleaned, select = -earliest_cr_line_year)
+      LC_Cleaned <- LC_Cleaned[!is.na(LC_Cleaned$earliest_cr_line_numeric), ]
+      LC_Cleaned <- subset(LC_Cleaned, select = -earliest_cr_line)
+      LC_Cleaned <- subset(LC_Cleaned, select = -earliest_cr_line_date)
+      LC_Cleaned <- subset(LC_Cleaned, select = -earliest_cr_line_char)
+      LC_Cleaned <- subset(LC_Cleaned, select = -earliest_cr_line_year)
       #LC_Cleaned <- subset(LC_Cleaned, select = -earliest_cr_line_numeric)
 
 
@@ -547,7 +547,7 @@ perform_data_preprocessing <- function(dataset_file_path, analysis_type) {
 
 
       # 51. application_type: Indicates whether the loan is an individual application or a joint application with two co-borrowers
-
+      LC_Cleaned$application_type <- factor(LC_Cleaned$application_type)
       # Train the Model on Individual Applications Only
       # Create a new data frame with only the "JOINT" application type rows
       LC_Cleaned_application_type_joint <- LC_Cleaned %>%
