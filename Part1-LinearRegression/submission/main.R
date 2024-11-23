@@ -28,7 +28,7 @@ if(!require("earth")) install.packages("earth", dependencies = TRUE)
 if(!require("gbm")) install.packages("gbm", dependencies = TRUE)
 if(!require("doParallel")) install.packages("doParallel", dependencies = TRUE)
 if(!require("randomForest")) install.packages("tree", dependencies = TRUE)
-if(!require("vif")) install.packages("car", dependencies = TRUE)
+#if(!require("vif")) install.packages("car", dependencies = TRUE)
 
 # Load packages
 library('dplyr')
