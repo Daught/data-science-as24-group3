@@ -552,7 +552,9 @@ perform_data_preprocessing <- function(dataset_path, analysis_type, filter_value
 
       if (analysis_type == "export") {
           # Export the data frame to a CSV file
-          write.csv2(LC_Cleaned, file = "./submission/data/LCdata_preprocessed.csv", row.names = TRUE)
+          ouput_file_path = "./submission/data/LCdata_preprocessed.csv"
+          write.csv2(LC_Cleaned, file = ouput_file_path, row.names = TRUE)
+          return(ouput_file_path)
       } else if (analysis_type == "return") {  
           # Return the cleaned dataframe
           return(LC_Cleaned)
