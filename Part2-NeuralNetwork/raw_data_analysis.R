@@ -6,6 +6,7 @@ library(corrplot)
 library(tidyverse)
 library(fastDummies)
 
+
 clean_column <- function(data, 
                          column_name, 
                          k = 5, 
@@ -28,8 +29,16 @@ clean_column <- function(data,
     # Drop missing character values
     data <- data[!is.na(data[[column_name]]), ]
     
-    if (onehot_encode){
-      data <- dummy_cols(data, select_columns=column_name, remove_selected_columns = TRUE)
+    if (onehot_encode) {
+      data <- dummy_cols(data, select_columns = column_name, remove_selected_columns = TRUE)
+      
+      # Check if the one-hot encoding resulted in only two columns for the variable
+      new_columns <- grep(paste0("^", column_name, "_"), names(data), value = TRUE)
+      
+      if (length(new_columns) == 2) {
+        # Drop one of the new columns to avoid redundancy
+        data <- data[ , !(names(data) %in% new_columns[1])]
+      }
     }
     else{
       # Convert the remaining column to factor
@@ -240,8 +249,98 @@ summary(as.factor(data$status))
 data$status <- as.integer(factor(data$status, ordered = TRUE, levels = c("X", "C", "0", "1", "2", "3", "4", "5")))
 
 
+y <- data$status  # Target variable
+X <- data[, -which(names(data) == "status")]  # Features
+
 # Plot the correlation matrix and save because of many rows it is easier to read.
-correlation_matrix <- cor(data)
+correlation_matrix <- cor(X)
 png(filename = "raw_data_corrplot.png", width = 2000, height = 2000)
 corrplot(correlation_matrix, method = "color", type = "upper", tl.col = "black", addCoef.col = "black",number.cex = 1, tl.cex = 1)
 dev.off()
+
+# we remove CNT_CHILDREN due to redondancy. Corr. is quite high. The rest which correlates it regarding one_hot -> we keep them.
+# we could also leave this feature since it will disapear during training but for completeness we drop it for now
+data_cleaned_cross_corr <- data %>% select(-"CNT_CHILDREN")
+
+# Plot the correlation matrix and save because of many rows it is easier to read.
+correlation_matrix <- cor(data_cleaned_cross_corr)
+png(filename = "cleanded_data_corrplot.png", width = 2000, height = 2000)
+corrplot(correlation_matrix, method = "color", type = "upper", tl.col = "black", addCoef.col = "black",number.cex = 1, tl.cex = 1)
+dev.off()
+
+
+#----------------------------Train model --------------------------- transfer in other file 
+# Load necessary libraries
+# Install necessary libraries if not already installed
+
+# install.packages("remotes")
+remotes::install_github("rstudio/tensorflow")
+reticulate::install_python()
+
+library(tensorflow)
+install_tensorflow(envname = "r-tensorflow")
+
+install.packages("keras")
+library(keras)
+install_keras()
+
+library(tensorflow)
+
+tf$constant("Hello TensorFlow!")
+
+
+# Ensure reproducibility
+set.seed(1)
+
+# Split data into training and testing sets
+train_indices <- sample(1:nrow(X), size = 0.8 * nrow(X))
+x_train <- as.matrix(X[train_indices, ])
+y_train <- as.numeric(as.factor(y[train_indices])) - 1  # Ensure zero-based index
+x_test <- as.matrix(X[-train_indices, ])
+y_test <- as.numeric(as.factor(y[-train_indices])) - 1
+
+# Manually one-hot encode the targets
+one_hot_encode <- function(y, num_classes) {
+  matrix <- matrix(0, nrow = length(y), ncol = num_classes)
+  for (i in seq_along(y)) {
+    matrix[i, y[i] + 1] <- 1
+  }
+  return(matrix)
+}
+
+# Define number of classes
+num_classes <- length(unique(y))
+y_train <- one_hot_encode(y_train, num_classes)
+y_test <- one_hot_encode(y_test, num_classes)
+
+# Verify dimensions
+cat("x_train dimensions:", dim(x_train), "\n")
+cat("y_train dimensions:", dim(y_train), "\n")
+
+# Define the model
+model <- keras_model_sequential() %>%
+  layer_dense(units = 64, activation = 'relu', input_shape = c(ncol(x_train))) %>%
+  layer_dense(units = 64, activation = 'relu') %>%
+  layer_dense(units = num_classes, activation = 'softmax')
+
+# Compile the model
+model %>% compile(
+  optimizer = optimizer_adam(),
+  loss = 'categorical_crossentropy',
+  metrics = c('accuracy')
+)
+
+# Train the model
+history <- model %>% fit(
+  x = x_train,
+  y = y_train,
+  epochs = 20,
+  batch_size = 32,
+  validation_split = 0.2
+)
+
+# Evaluate the model
+evaluation <- model %>% evaluate(x_test, y_test)
+
+cat("Test loss:", evaluation$loss, "\n")
+cat("Test accuracy:", evaluation$accuracy, "\n")
