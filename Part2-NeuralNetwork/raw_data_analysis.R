@@ -272,19 +272,10 @@ dev.off()
 #----------------------------Train model --------------------------- transfer in other file 
 # Load necessary libraries
 # Install necessary libraries if not already installed
-
-# install.packages("remotes")
-remotes::install_github("rstudio/tensorflow")
-reticulate::install_python()
-
-library(tensorflow)
-install_tensorflow(envname = "r-tensorflow")
-
-install.packages("keras")
 library(keras)
-install_keras()
-
 library(tensorflow)
+install_tensorflow(version = "2.15.0")
+
 
 tf$constant("Hello TensorFlow!")
 
@@ -317,9 +308,12 @@ y_test <- one_hot_encode(y_test, num_classes)
 cat("x_train dimensions:", dim(x_train), "\n")
 cat("y_train dimensions:", dim(y_train), "\n")
 
+# Get the number of input features
+input_dim <- ncol(x_train)
+
 # Define the model
-model <- keras_model_sequential() %>%
-  layer_dense(units = 64, activation = 'relu', input_shape = c(ncol(x_train))) %>%
+model <- keras_model_sequential() %>% 
+  layer_dense(units = 64, activation = "relu", input_shape = c(input_dim)) %>% 
   layer_dense(units = 64, activation = 'relu') %>%
   layer_dense(units = num_classes, activation = 'softmax')
 
@@ -331,16 +325,114 @@ model %>% compile(
 )
 
 # Train the model
-history <- model %>% fit(
-  x = x_train,
-  y = y_train,
-  epochs = 20,
-  batch_size = 32,
-  validation_split = 0.2
+model %>% fit(
+  x_train,
+  y_train,
+  epochs = 100,
+  batch_size = 128,
+  validation_data = list(x_test, y_test)
 )
 
-# Evaluate the model
-evaluation <- model %>% evaluate(x_test, y_test)
+#--------------------cv-------------------------
+library(caret)  
+# Define parameters for cross-validation
+# Use `data_cleaned_cross_corr` to define X and y
 
-cat("Test loss:", evaluation$loss, "\n")
-cat("Test accuracy:", evaluation$accuracy, "\n")
+
+# One-hot encode the target variable
+y_onehot <- keras::to_categorical(y, num_classes = length(unique(y)))
+
+# Define parameters
+k_folds <- 5  # Number of cross-validation folds
+epochs <- 50
+batch_size <- 32
+learning_rate <- 0.001
+
+# Create k-fold cross-validation splits
+set.seed(1)  # Ensure reproducibility
+folds <- createFolds(1:nrow(X), k = k_folds, list = TRUE)
+
+# Define a function to build the model
+build_model <- function(input_shape, num_classes, learning_rate) {
+  model <- keras_model_sequential() %>%
+    layer_dense(units = 512, activation = "relu", input_shape = input_shape) %>%
+    layer_batch_normalization() %>%
+    layer_dropout(rate = 0.4) %>%
+    layer_dense(units = 256, activation = "relu") %>%
+    layer_batch_normalization() %>%
+    layer_dropout(rate = 0.4) %>%
+    layer_dense(units = 128, activation = "relu", input_shape = input_shape) %>%
+    layer_batch_normalization() %>%
+    layer_dropout(rate = 0.4) %>%
+    layer_dense(units = 64, activation = "relu") %>%
+    layer_batch_normalization() %>%
+    layer_dropout(rate = 0.4) %>%
+    layer_dense(units = num_classes, activation = "softmax")
+  
+  model %>% compile(
+    optimizer = optimizer_adam(learning_rate = learning_rate),
+    loss = "categorical_crossentropy",
+    metrics = c("accuracy")
+  )
+  
+  return(model)
+}
+
+# Cross-validation loop
+cv_results <- data.frame(fold = 1:k_folds, train_accuracy = 0, val_accuracy = 0)
+
+for (i in 1:k_folds) {
+  cat("Running fold", i, "/", k_folds, "\n")
+  
+  # Split data into training and validation for this fold
+  val_indices <- folds[[i]]
+  x_val <- X[val_indices, ]
+  y_val <- y_onehot[val_indices, ]
+  x_train <- X[-val_indices, ]
+  y_train <- y_onehot[-val_indices, ]
+  
+  # Build and train the model
+  model <- build_model(input_shape = ncol(X), num_classes = ncol(y_onehot), learning_rate = learning_rate)
+  
+  history <- model %>% fit(
+    x_train, y_train,
+    epochs = epochs,
+    batch_size = batch_size,
+    validation_data = list(x_val, y_val),
+    verbose = 1
+  )
+  
+  # Evaluate on validation set
+  val_scores <- model %>% evaluate(x_val, y_val, verbose = 0)
+  
+  # Save results
+  cv_results$train_accuracy[i] <- max(history$metrics$accuracy)
+  cv_results$val_accuracy[i] <- val_scores["accuracy"]
+}
+
+# Summarize cross-validation results
+cat("Cross-validation results:\n")
+print(cv_results)
+cat("Average validation accuracy:", mean(cv_results$val_accuracy), "\n")
+
+# Train final model on the entire dataset
+cat("Training final model on the full dataset\n")
+final_model <- build_model(input_shape = ncol(X), num_classes = ncol(y_onehot), learning_rate = learning_rate)
+
+# Use early stopping for final training
+early_stopping <- callback_early_stopping(monitor = "val_loss", patience = 5)
+
+history_final <- final_model %>% fit(
+  X, y_onehot,
+  epochs = epochs,
+  batch_size = batch_size,
+  validation_split = 0.2,
+  callbacks = list(early_stopping),
+  verbose = 1
+)
+
+# Save the final model
+final_model %>% save_model_hdf5("final_model.h5")
+
+# Evaluate on test data if provided
+cat("Final model trained successfully. Save and ready for deployment!\n")
