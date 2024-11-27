@@ -246,7 +246,14 @@ data <- clean_column(data, "CNT_FAM_MEMBERS")
 summary(as.factor(data$status))
 # Reorder: C is the best no overdue then 0 - 5
 # Remark: Here X was chosen even better as C but it remains to be seen if this makes sense.
-data$status <- as.integer(factor(data$status, ordered = TRUE, levels = c("X", "C", "0", "1", "2", "3", "4", "5")))
+data$status <- case_when(data$status == "C" ~ 7,
+                         data$status == "X" ~ 6,
+                         data$status == "0" ~ 0,
+                         data$status == "1" ~ 1,
+                         data$status == "2" ~ 2,
+                         data$status == "3" ~ 3,
+                         data$status == "4" ~ 4,
+                         data$status == "5" ~ 5)
 
 
 y <- data$status  # Target variable
@@ -357,16 +364,16 @@ build_model <- function(input_shape, num_classes, learning_rate) {
   model <- keras_model_sequential() %>%
     layer_dense(units = 512, activation = "relu", input_shape = input_shape) %>%
     layer_batch_normalization() %>%
-    layer_dropout(rate = 0.4) %>%
+    layer_dropout(rate = 0.3) %>%
     layer_dense(units = 256, activation = "relu") %>%
     layer_batch_normalization() %>%
-    layer_dropout(rate = 0.4) %>%
+    layer_dropout(rate = 0.3) %>%
     layer_dense(units = 128, activation = "relu", input_shape = input_shape) %>%
     layer_batch_normalization() %>%
-    layer_dropout(rate = 0.4) %>%
+    layer_dropout(rate = 0.3) %>%
     layer_dense(units = 64, activation = "relu") %>%
     layer_batch_normalization() %>%
-    layer_dropout(rate = 0.4) %>%
+    layer_dropout(rate = 0.3) %>%
     layer_dense(units = num_classes, activation = "softmax")
   
   model %>% compile(
