@@ -142,7 +142,8 @@ data <- clean_column(data, "CNT_CHILDREN")
 str(data$AMT_INCOME_TOTAL)
 summary(data$AMT_INCOME_TOTAL)
 # we have ouliers here but in praxis it is possible to have an anual income of over 6750000. We do not drop them
-
+income_cap <- quantile(data$AMT_INCOME_TOTAL, 0.99)
+data$AMT_INCOME_TOTAL <- pmin(data$AMT_INCOME_TOTAL, income_cap)
 data <- clean_column(data, "AMT_INCOME_TOTAL")
 
 # NAME_INCOME_TYPE - Income category 
@@ -281,7 +282,7 @@ dev.off()
 # Install necessary libraries if not already installed
 library(keras)
 library(tensorflow)
-install_tensorflow(version = "2.15.0")
+#install_tensorflow(version = "2.15.0")
 
 
 tf$constant("Hello TensorFlow!")
@@ -305,6 +306,20 @@ one_hot_encode <- function(y, num_classes) {
   }
   return(matrix)
 }
+# generate weights for unbalanced data
+class_counts <- table(y)
+total_samples <- sum(class_counts)
+num_classes <- length(class_counts)
+
+# Compute class weights inversely proportional to class frequencies
+dynamic_class_weights <- total_samples / (num_classes * class_counts)
+
+# Normalize weights for better balance (optional)
+dynamic_class_weights <- dynamic_class_weights / max(dynamic_class_weights)
+
+# Convert to a named list for Keras
+class_weights <- as.list(as.numeric(dynamic_class_weights))
+names(class_weights) <- as.character(names(class_counts))
 
 # Define number of classes
 num_classes <- length(unique(y))
@@ -328,7 +343,7 @@ model <- keras_model_sequential() %>%
 model %>% compile(
   optimizer = optimizer_adam(),
   loss = 'categorical_crossentropy',
-  metrics = c('accuracy')
+  metrics = c('accuracy'),
 )
 
 # Train the model
@@ -337,7 +352,9 @@ model %>% fit(
   y_train,
   epochs = 100,
   batch_size = 128,
-  validation_data = list(x_test, y_test)
+  validation_data = list(x_test, y_test),
+  class_weight = class_weights
+  
 )
 
 #--------------------cv-------------------------
@@ -355,23 +372,40 @@ epochs <- 50
 batch_size <- 32
 learning_rate <- 0.001
 
-# Create k-fold cross-validation splits
-set.seed(1)  # Ensure reproducibility
-folds <- createFolds(1:nrow(X), k = k_folds, list = TRUE)
+# Updated Cross-Validation Code
 
-# Define a function to build the model
+# Ensure reproducibility
+set.seed(1)
+library(tensorflow)
+tf$random$set_seed(1)
+
+# Stratified sampling for folds to maintain class balance
+folds <- createFolds(y, k = k_folds, list = TRUE, returnTrain = FALSE)
+
+# Define number of classes and input dimensions
+num_classes <- length(unique(y))
+input_dim <- ncol(X)
+
+
+# Define the model-building function
 build_model <- function(input_shape, num_classes, learning_rate) {
   model <- keras_model_sequential() %>%
     layer_dense(units = 512, activation = "relu", input_shape = input_shape) %>%
     layer_batch_normalization() %>%
     layer_dropout(rate = 0.3) %>%
-    layer_dense(units = 256, activation = "relu") %>%
+    layer_dense(units = 256, activation = "relu", kernel_regularizer = regularizer_l2(0.01)) %>%
     layer_batch_normalization() %>%
     layer_dropout(rate = 0.3) %>%
-    layer_dense(units = 128, activation = "relu", input_shape = input_shape) %>%
+    layer_dense(units = 128, activation = "relu", kernel_regularizer = regularizer_l2(0.01)) %>%
     layer_batch_normalization() %>%
     layer_dropout(rate = 0.3) %>%
-    layer_dense(units = 64, activation = "relu") %>%
+    layer_dense(units = 64, activation = "relu", kernel_regularizer = regularizer_l2(0.01)) %>%
+    layer_batch_normalization() %>%
+    layer_dropout(rate = 0.3) %>%
+    layer_dense(units = 32, activation = "relu", kernel_regularizer = regularizer_l2(0.01)) %>%
+    layer_batch_normalization() %>%
+    layer_dropout(rate = 0.3) %>%
+    layer_dense(units = 16, activation = "relu", kernel_regularizer = regularizer_l2(0.01)) %>%
     layer_batch_normalization() %>%
     layer_dropout(rate = 0.3) %>%
     layer_dense(units = num_classes, activation = "softmax")
@@ -381,7 +415,6 @@ build_model <- function(input_shape, num_classes, learning_rate) {
     loss = "categorical_crossentropy",
     metrics = c("accuracy")
   )
-  
   return(model)
 }
 
@@ -389,25 +422,41 @@ build_model <- function(input_shape, num_classes, learning_rate) {
 cv_results <- data.frame(fold = 1:k_folds, train_accuracy = 0, val_accuracy = 0)
 
 for (i in 1:k_folds) {
-  cat("Running fold", i, "/", k_folds, "\n")
+  cat("\nRunning fold", i, "/", k_folds, "\n")
   
-  # Split data into training and validation for this fold
+  # Split data into training and validation sets
   val_indices <- folds[[i]]
-  x_val <- X[val_indices, ]
-  y_val <- y_onehot[val_indices, ]
-  x_train <- X[-val_indices, ]
-  y_train <- y_onehot[-val_indices, ]
+  x_val <- as.matrix(X[val_indices, ])
+  y_val <- as.matrix(y_onehot[val_indices, ])
+  x_train <- as.matrix(X[-val_indices, ])
+  y_train <- as.matrix(y_onehot[-val_indices, ])
+  
+  # Debug: Check column consistency
+  if (!all(colnames(x_train) == colnames(x_val))) {
+    stop("Column mismatch between training and validation datasets.")
+  }
+  
+  # Debug: Print data dimensions
+  cat("x_train dimensions:", dim(x_train), "\n")
+  cat("x_val dimensions:", dim(x_val), "\n")
+  cat("y_train dimensions:", dim(y_train), "\n")
+  cat("y_val dimensions:", dim(y_val), "\n")
   
   # Build and train the model
-  model <- build_model(input_shape = ncol(X), num_classes = ncol(y_onehot), learning_rate = learning_rate)
+  model <- build_model(input_shape = input_dim, num_classes = num_classes, learning_rate = learning_rate)
   
-  history <- model %>% fit(
-    x_train, y_train,
-    epochs = epochs,
-    batch_size = batch_size,
-    validation_data = list(x_val, y_val),
-    verbose = 1
-  )
+  history <- tryCatch({
+    model %>% fit(
+      x_train, y_train,
+      epochs = epochs,
+      batch_size = batch_size,
+      validation_data = list(x_val, y_val),
+      verbose = 1
+    )
+  }, error = function(e) {
+    cat("Error during training on fold", i, ":", e$message, "\n")
+    stop(e)  # Stop execution for debugging
+  })
   
   # Evaluate on validation set
   val_scores <- model %>% evaluate(x_val, y_val, verbose = 0)
@@ -418,25 +467,80 @@ for (i in 1:k_folds) {
 }
 
 # Summarize cross-validation results
-cat("Cross-validation results:\n")
+cat("\nCross-validation results:\n")
 print(cv_results)
 cat("Average validation accuracy:", mean(cv_results$val_accuracy), "\n")
 
-# Train final model on the entire dataset
+# ----------------------- Train final model on the entire dataset
 cat("Training final model on the full dataset\n")
+
+y_onehot <- keras::to_categorical(y, num_classes = length(unique(y)))
+epochs <- 1000
+batch_size <- 128
+learning_rate <- 0.001
+
+
+
 final_model <- build_model(input_shape = ncol(X), num_classes = ncol(y_onehot), learning_rate = learning_rate)
 
-# Use early stopping for final training
-early_stopping <- callback_early_stopping(monitor = "val_loss", patience = 5)
 
-history_final <- final_model %>% fit(
-  X, y_onehot,
-  epochs = epochs,
-  batch_size = batch_size,
-  validation_split = 0.2,
-  callbacks = list(early_stopping),
-  verbose = 1
+# Use early stopping for final training
+early_stopping <- callback_early_stopping(monitor = "val_loss", patience = 50)
+
+# Split data into training and validation sets
+train_indices <- sample(1:nrow(X), size = 0.8 * nrow(X))
+
+x_val <- as.matrix(X[-train_indices, ])
+y_val <- as.matrix(y_onehot[-train_indices, ])
+x_train <- as.matrix(X[train_indices, ])
+y_train <- as.matrix(y_onehot[train_indices, ])
+
+# Debug: Check column consistency
+if (!all(colnames(x_train) == colnames(x_val))) {
+  stop("Column mismatch between training and validation datasets.")
+}
+
+# Debug: Print data dimensions
+cat("x_train dimensions:", dim(x_train), "\n")
+cat("x_val dimensions:", dim(x_val), "\n")
+cat("y_train dimensions:", dim(y_train), "\n")
+cat("y_val dimensions:", dim(y_val), "\n")
+
+class_counts <- table(y)
+total_samples <- sum(class_counts)
+num_classes <- length(class_counts)
+
+# Compute class weights inversely proportional to class frequencies
+dynamic_class_weights <- total_samples / (num_classes * class_counts)
+
+# Normalize weights for better balance (optional)
+dynamic_class_weights <- dynamic_class_weights / max(dynamic_class_weights)
+
+# Convert to a named list for Keras
+class_weights <- as.list(as.numeric(dynamic_class_weights))
+
+lr_schedule <- callback_learning_rate_scheduler(
+  schedule = function(epoch, lr) {
+    if (epoch %% 100 == 0 && epoch != 0) {
+      return(lr * 0.5)
+    }
+    return(lr)
+  }
 )
+
+history <- tryCatch({
+  final_model %>% fit(
+    x_train, y_train,
+    epochs = epochs,
+    batch_size = batch_size,
+    validation_data = list(x_val, y_val),
+    callbacks = list(early_stopping, lr_schedule),
+    verbose = 1,
+    class_weight = class_weights
+  )
+}, error = function(e) {
+  stop(e)  # Stop execution for debugging
+})
 
 # Save the final model
 final_model %>% save_model_hdf5("final_model.h5")
