@@ -36,7 +36,7 @@ test_0 <- data_0[-train_0_indices, ]
 
 
 data_1 <- filter(data_cleaned_cross_corr, status==1)
-train_1_indices <- sample(1:nrow(data_1), size = 0.0 * nrow(data_1))
+train_1_indices <- sample(1:nrow(data_1), size = 0.8 * nrow(data_1))
 train_1 <- data_1[train_1_indices, ]
 test_1 <- data_1[-train_1_indices, ]
 
@@ -109,7 +109,7 @@ y_val <- keras::to_categorical(test$status)
 # ----------------------- Compute Class Weights --------------------
 # In case the classes are imbalanced, we compute dynamic class weights inversely proportional
 # to the frequency of each class. This helps the model treat underrepresented classes with more importance.
-
+y <- data_cleaned_cross_corr$status
 class_counts <- table(y)
 total_samples <- sum(class_counts)
 num_classes <- length(class_counts)
