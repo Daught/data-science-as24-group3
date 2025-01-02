@@ -22,6 +22,7 @@ if(!require('corrplot')) {              # Contains our data set
 if(!require('ggplot2')) {               # Contains our data set
   install.packages('ggplot2')
   library('ggplot2')
+  library('gridExtra')
 }
 if(!require('tidyverse')) {             # Contains our data set
   install.packages('tidyverse')
@@ -50,7 +51,7 @@ LC <- data # make a copy of the original data set, so that we dont mess with it
 ##########################   2. Data Exploration   ##########################
 
 #### Examine Data Set
-show_plots_flag <- FALSE
+show_plots_flag <- TRUE
 
 head(LC)
 
@@ -62,6 +63,58 @@ summary(LC)
   # Missing values
   #   - Salary: 59 NAs (18% of the data set)
   #   - Complete otherwise
+
+
+# Business Understanding Question: 
+
+## 1: What amounts were mostly issued to borrowers?
+loan_amount <- LC$loan_amnt
+funded_amount <- LC$funded_amnt
+investor_funds <- as.integer(LC$funded_amnt_inv)
+
+# Create individual plots
+p1 <- ggplot(LC, aes(x = loan_amount)) +
+  geom_density(fill = "#F7522F", alpha = 0.7) +
+  ggtitle("Loan Applied by the Borrower") +
+  theme_minimal() +
+  theme(plot.title = element_text(size = 14, hjust = 0.5))
+
+p2 <- ggplot(LC, aes(x = funded_amount)) +
+  geom_density(fill = "#2F8FF7", alpha = 0.7) +
+  ggtitle("Amount Funded by the Lender") +
+  theme_minimal() +
+  theme(plot.title = element_text(size = 14, hjust = 0.5))
+
+p3 <- ggplot(LC, aes(x = investor_funds)) +
+  geom_density(fill = "#2EAD46", alpha = 0.7) +
+  ggtitle("Total Committed by Investors") +
+  theme_minimal() +
+  theme(plot.title = element_text(size = 14, hjust = 0.5))
+
+grid.arrange(p1, p2, p3, ncol = 3)
+
+
+## 2: Which year issued the most loans?
+
+# Convert 'issue_d' to Date type and extract the year
+LC$issue_d <- as.Date(paste("01", LC$issue_d), format = "%d %b-%Y")
+LC$year <- year(LC$issue_d)
+
+# Plotting
+ggplot(LC, aes(x = factor(year), y = loan_amnt)) +
+  stat_summary(fun = "mean", geom = "bar", fill = "steelblue") +
+  ggtitle("Issuance of Loans") +
+  xlab("Year") +
+  ylab("Average Loan Amount Issued") +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 16, hjust = 0.5),
+    axis.title.x = element_text(size = 14),
+    axis.title.y = element_text(size = 14)
+  )
+
+
+
 
 
 ##############   Step 2 - Data Preprocessing   ##########################
@@ -172,6 +225,7 @@ if(show_plots_flag){
 }
 
 LC_Cleaned <- subset(LC_Cleaned, select = -funded_amnt_inv)
+
 
 # 6. term: This column specifies the length of the loan in months (either 36 or 60 months). It is essentially a categorical variable, 
 #    so we’ll trim any unnecessary spaces and explore how the term affects loan amounts and funding.

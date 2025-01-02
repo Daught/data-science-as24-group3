@@ -112,6 +112,8 @@ candidate_xgb_model_full <- train(
 candidate_xgb_model_full
 candidate_xgb_model_full$bestTune  # Optimal hyperparameters
 
+varImp(candidate_xgb_model_full)
+
 # Step 3: Predict interest rates on the test data
 test$predicted_int_rate <- predict(candidate_xgb_model_full, newdata = test)
 
@@ -176,7 +178,7 @@ saveRDS(candidate_xgb_model_full, "./submission/data/Group03_Final-Model_XGBoost
 
 # Step 1: Train a regression model (e.g., linear regression) using all features
 candidate_lm_model_full <- lm(int_rate ~ ., data = train) 
-summary(candidate_lm_model_full)  # MSE: 10.47649
+summary(candidate_lm_model_full)  # MSE: 10.660
 vif(candidate_lm_model_full)  # Check Variance Inflation Factor (VIF) for multicollinearity
 
 # Step 2: Train the regression model with subset selection to identify the best subset of predictors
@@ -186,7 +188,7 @@ summary(candidate_lm)  # Not helpful due to multiple categorical features
 # Step 3: Refine the model by dropping insignificant features or features with high multicollinearity
 
 # Refined Model 1: Remove features with high VIF or poor contribution
-candidate_lm_model_refined_1 <- lm(int_rate ~ . - il_util - collections_12_mths_ex_med - pub_rec, data = train) 
+candidate_lm_model_refined_1 <- lm(int_rate ~ . - open_il_24m - open_rv_24m, data = train) 
 summary(candidate_lm_model_refined_1)  # MSE: 10.47565
 vif(candidate_lm_model_refined_1)  # Check for remaining multicollinearity
 
@@ -202,6 +204,8 @@ summary(candidate_lm_model_refined_3)  # MSE: 10.71717
 candidate_lm_model_refined_4 <- lm(int_rate ~ . - purpose - mths_since_last_record - home_ownership - collections_12_mths_ex_med - pub_rec, data = train) 
 summary(candidate_lm_model_refined_4)  # MSE: 11.53331
 
+candidate_lm_model_refined_5 <- lm(int_rate ~ . - open_il_24m - open_rv_24m - collections_12_mths_ex_med - pub_rec - mths_since_last_record - open_acc, data = train)
+summary(candidate_lm_model_refined_5) # MSE: 10.667
 
 
 ##############   3.2 Model: Random Forest                                       ##########################
@@ -231,6 +235,12 @@ candidate_rf_model.predict.test <- predict(candidate_rf_model, newdata = test)
 # Calculate Test RMSE
 candidate_rf_model.test.MSE <- mean((candidate_rf_model.predict.test - test$int_rate)^2)  # Mean Squared Error
 candidate_rf_model.test.RMSE <- sqrt(candidate_rf_model.test.MSE)  # Root Mean Squared Error
+
+# R-squared
+test_sst <- sum((test$int_rate - mean(test$int_rate))^2)  # Total Sum of Squares
+test_sse <- sum((test$int_rate - candidate_rf_model.predict.test)^2)  # Sum of Squared Errors
+test_r_squared <- 1 - (test_sse / test_sst)
+print(paste("R-squared: ", round(test_r_squared, 4)))
 
 # Display the Test MSE and RMSE
 candidate_rf_model.test.MSE  # Test Mean Squared Error
@@ -351,9 +361,9 @@ xgb.plot.importance(
 
 # Step 1: Split data into training and testing sets
 set.seed(static_seed_value)  # Set seed for reproducibility
-tData <- sample(1:nrow(LC_Cleaned), 0.1 * nrow(LC_Cleaned))
-trainData <- LC_Cleaned[tData, ]
-testData <- LC_Cleaned[-tData, ]
+tData <- sample(1:nrow(LC_Data), 0.1 * nrow(LC_Data))
+trainData <- LC_Data[tData, ]
+testData <- LC_Data[-tData, ]
 
 # Step 2: Set up parallel processing
 num_cores <- parallel::detectCores() - 1  # Use all but one core
@@ -449,7 +459,6 @@ gbm_model <- train(
 gbm_predictions <- predict(gbm_model, testData)
 gbm_mse <- calculate_mse(gbm_predictions, testData$int_rate)
 cat("Gradient Boosting MSE:", gbm_mse, "\n")
-
 
 ##############   3.5.6 Extreme Gradient Boosting (XGBoost)                      ##########################
 set.seed(static_seed_value)

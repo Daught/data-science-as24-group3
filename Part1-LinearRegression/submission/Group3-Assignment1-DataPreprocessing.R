@@ -574,7 +574,8 @@ perform_data_preprocessing <- function(dataset_file_path, analysis_type) {
           # Return the cleaned dataframe
           return(list(
             data = LC_Cleaned,
-            data_application_type_joint = LC_Cleaned_application_type_joint
+            data_application_type_joint = LC_Cleaned_application_type_joint,
+            original = data
           ))          
       } else {
           stop("Unsupported analysis type:", analysis_type)

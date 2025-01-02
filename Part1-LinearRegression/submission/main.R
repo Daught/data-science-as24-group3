@@ -41,6 +41,7 @@ LC_Processed <- perform_data_preprocessing(dataset_file_path, export_type)
 
 LC_Processed_Data <- LC_Processed$data
 LC_Processed_Application_Joint <- LC_Processed$data_application_type_joint
+LC_Original_data <- LC_Processed$original
 
 ##############   Step 3: Predict                                                          ##########################
 
