@@ -24,7 +24,7 @@ rm(list = ls())
 
 # Define file paths and parameters
 model_file_path       <- 'best_model.h5'         # Path to the pre-trained model
-test_data_file_path   <- '' # Path to the test data
+test_data_file_path   <- './ressources/Dataset-part-2.csv' # Path to the test data
 static_seed_value     <- 1                        # Set seed for reproducibility
 
 # Check if the test data file path is provided, else take default test data
@@ -101,15 +101,15 @@ data <- read.csv(test_data_file_path, sep = ",")
 # Data preprocessing: Cleaning and transforming columns
 cat("Running preprocessing on test data...\n")
 # Clean and preprocess data using custom function
-columns_to_remove <- c("ID")
+columns_to_remove <- c("ID", "CNT_CHILDREN")
 data <- data[ , !(names(data) %in% columns_to_remove)]
 data <- clean_column(data, "CODE_GENDER", is_ordered_factor = TRUE, order_levels=c("F", "M"))
 data <- clean_column(data, "FLAG_OWN_CAR", is_ordered_factor = TRUE, order_levels=c("N", "Y"))
 data <- clean_column(data, "FLAG_OWN_REALTY", is_ordered_factor = TRUE, order_levels=c("N", "Y"))
-data <- data %>% filter(CNT_CHILDREN < 12)
-data <- clean_column(data, "CNT_CHILDREN")
-max_income = quantile(data$AMT_INCOME_TOTAL,c(0.95))
-data <- filter(data, AMT_INCOME_TOTAL <= max_income)
+#data <- data %>% filter(CNT_CHILDREN < 12)
+#data <- clean_column(data, "CNT_CHILDREN")
+#max_income = quantile(data$AMT_INCOME_TOTAL,c(0.95))
+#data <- filter(data, AMT_INCOME_TOTAL <= max_income)
 data <- clean_column(data, "AMT_INCOME_TOTAL")
 data <- clean_column(data, "NAME_INCOME_TYPE", onehot_encode = TRUE)
 levels <- c("Lower secondary", "Secondary / secondary special", "Incomplete higher", "Higher education", "Academic degree")
@@ -132,12 +132,12 @@ data$status <- case_when(data$status == "C" ~ 7,
                          data$status == "3" ~ 3,
                          data$status == "4" ~ 4,
                          data$status == "5" ~ 5)
-data_cleaned_cross_corr <- data %>% select(-"CNT_CHILDREN")
+#data_cleaned_cross_corr <- data %>% select(-"CNT_CHILDREN")
 
 
 
-X <- as.matrix(subset(data_cleaned_cross_corr, select = -status))
-y <- keras::to_categorical(data_cleaned_cross_corr$status)
+X <- as.matrix(subset(data, select = -status))
+y <- keras::to_categorical(data$status)
 
 ##############   Step 3: Load Pre-trained Model and Predict   ##########################
 cat("Loading pre-trained model...\n")
