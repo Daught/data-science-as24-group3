@@ -110,7 +110,7 @@ mse                   <- mean((LC_Final$int_rate - LC_Final$final_predicted_int_
 rmse                  <- sqrt(mse)                                                              # Root Mean Squared Error (RMSE)
 sst                   <- sum((LC_Final$int_rate - mean(LC_Final$int_rate))^2)                   # Total Sum of Squares
 sse                   <- sum((LC_Final$int_rate - LC_Final$final_predicted_int_rate)^2)         # Sum of Squared Errors
-r_squared             <- 1 - (sst / sse)                                                        # R-squared
+r_squared             <- 1 - (sse / sst)                                                        # R-squared
 min_int_rate          <- min(LC_Final$int_rate, na.rm = TRUE)                                   # Minimum interest rate
 max_int_rate          <- max(LC_Final$int_rate, na.rm = TRUE)                                   # Maximum interest rate
 range_int_rate        <- max_int_rate - min_int_rate                                            # Range of interest rate

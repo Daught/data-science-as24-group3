@@ -84,8 +84,8 @@ watchlist = list(train=train, test=test)
 
 # Step 1: Define the grid of hyperparameters for tuning
 xgbGrid <- expand.grid(
-  nrounds = c(250),
-  max_depth = c(6),
+  nrounds = seq(50, 1000, by = 50),
+  max_depth = seq(4, 7, by = 1),
   eta = c(0.3),
   gamma = c(0),
   colsample_bytree = c(1.0),

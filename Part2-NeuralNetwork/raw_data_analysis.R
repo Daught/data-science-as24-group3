@@ -1,4 +1,4 @@
-# Install the 'scales' package if not already installed
+#Install the 'scales' package if not already installed
 #install.packages("scales")
 # Load the library
 library(scales)
