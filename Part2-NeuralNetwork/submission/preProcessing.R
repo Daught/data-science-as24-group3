@@ -1,4 +1,4 @@
-#Install the 'scales' package if not already installed
+# Install the 'scales' package if not already installed
 #install.packages("scales")
 # Load the library
 library(scales)
@@ -31,14 +31,6 @@ clean_column <- function(data,
     
     if (onehot_encode) {
       data <- dummy_cols(data, select_columns = column_name, remove_selected_columns = TRUE)
-      
-      # Check if the one-hot encoding resulted in only two columns for the variable
-      new_columns <- grep(paste0("^", column_name, "_"), names(data), value = TRUE)
-      
-      if (length(new_columns) == 2) {
-        # Drop one of the new columns to avoid redundancy
-        data <- data[ , !(names(data) %in% new_columns[1])]
-      }
     }
     else{
       # Convert the remaining column to factor
@@ -95,25 +87,26 @@ columns_to_remove <- c("ID")
 data <- data[ , !(names(data) %in% columns_to_remove)]
 
 # CODE_GENDER - Gender
-# data seems fine. No missing values and all data is binary. Therefore onehot encoding.
+# data seems fine. No missing values and all data is binary. Therefore factor encoding.
 str(data$CODE_GENDER)
 summary(data$CODE_GENDER)
 
-data <- clean_column(data, "CODE_GENDER", onehot_encode = TRUE)
+data <- clean_column(data, "CODE_GENDER", is_ordered_factor = TRUE, order_levels=c("F", "M"))
+
 
 # FLAG_OWN_CAR - Is there a car
-# data seems fine. No missing values and all data is binary. Therefore onehot encoding.
+# data seems fine. No missing values and all data is binary. Therefore factor encoding.
 str(data$FLAG_OWN_CAR)
 summary(data$FLAG_OWN_CAR)
 
-data <- clean_column(data, "FLAG_OWN_CAR", onehot_encode = TRUE)
+data <- clean_column(data, "FLAG_OWN_CAR", is_ordered_factor = TRUE, order_levels=c("N", "Y"))
 
 # FLAG_OWN_REALTY - Is there a property
-# data seems fine. No missing values and all data is binary. Therefore onehot encoding.
+# data seems fine. No missing values and all data is binary. Therefore factor encoding.
 str(data$FLAG_OWN_REALTY)
 summary(data$FLAG_OWN_REALTY)
 
-data <- clean_column(data, "FLAG_OWN_REALTY", onehot_encode = TRUE)
+data <- clean_column(data, "FLAG_OWN_REALTY", is_ordered_factor = TRUE, order_levels=c("N", "Y"))
 
 # CNT_CHILDREN - Number of children
 # Ordered values and Numeric. Third quantile is 1 so we do not use our function to remove outlieres here. We do it manually.
@@ -142,8 +135,10 @@ data <- clean_column(data, "CNT_CHILDREN")
 str(data$AMT_INCOME_TOTAL)
 summary(data$AMT_INCOME_TOTAL)
 # we have ouliers here but in praxis it is possible to have an anual income of over 6750000. We do not drop them
-income_cap <- quantile(data$AMT_INCOME_TOTAL, 0.99)
-data$AMT_INCOME_TOTAL <- pmin(data$AMT_INCOME_TOTAL, income_cap)
+
+max_income = quantile(data$AMT_INCOME_TOTAL,c(0.95))
+data <- filter(data, AMT_INCOME_TOTAL <= max_income)
+
 data <- clean_column(data, "AMT_INCOME_TOTAL")
 
 # NAME_INCOME_TYPE - Income category 
@@ -160,6 +155,8 @@ table(data$NAME_EDUCATION_TYPE)
 levels <- c("Lower secondary", "Secondary / secondary special", "Incomplete higher", "Higher education", "Academic degree")
 # data seems fine. No missing values and all data is categorical (nominal). Therefore using ordered factor.
 data <- clean_column(data, "NAME_EDUCATION_TYPE", is_ordered_factor = TRUE, order_levels = levels)
+
+table(data$NAME_EDUCATION_TYPE)
 
 
 # NAME_FAMILY_STATUS - Marital status
@@ -209,16 +206,19 @@ data <- subset(data, select = -FLAG_MOBIL)
 # FLAG_WORK_PHONE - Is there a work phone
 summary(data$FLAG_WORK_PHONE)
 # No NAs. Data is already between 0 and 1. No changes required.
+# data <- subset(data, select = -FLAG_WORK_PHONE)
 
 
 # FLAG_PHONE - Is there a phone
 summary(data$FLAG_PHONE)
 # No NAs. Data is already between 0 and 1. No changes required.
+# data <- subset(data, select = -FLAG_PHONE)
 
 
 # FLAG_EMAIL - Is there an email
 summary(data$FLAG_EMAIL)
 # No NAs. Data is already between 0 and 1. No changes required.
+# data <- subset(data, select = -FLAG_EMAIL)
 
 
 # OCCUPATION_TYPE - Occupation
@@ -226,7 +226,7 @@ summary(as.factor(data$OCCUPATION_TYPE))
 # There are 20699 NA's which is about a third of the total rows. Create new category missing.
 data$OCCUPATION_TYPE[is.na(data$OCCUPATION_TYPE)] <- "Missing"
 data <- clean_column(data, "OCCUPATION_TYPE", onehot_encode = TRUE)
-
+# data <- subset(data, select = -OCCUPATION_TYPE)
 
 # CNT_FAM_MEMBERS - Family size
 summary(data$CNT_FAM_MEMBERS)
@@ -257,11 +257,8 @@ data$status <- case_when(data$status == "C" ~ 7,
                          data$status == "5" ~ 5)
 
 
-y <- data$status  # Target variable
-X <- data[, -which(names(data) == "status")]  # Features
-
 # Plot the correlation matrix and save because of many rows it is easier to read.
-correlation_matrix <- cor(X)
+correlation_matrix <- cor(data)
 png(filename = "raw_data_corrplot.png", width = 2000, height = 2000)
 corrplot(correlation_matrix, method = "color", type = "upper", tl.col = "black", addCoef.col = "black",number.cex = 1, tl.cex = 1)
 dev.off()
@@ -277,273 +274,7 @@ corrplot(correlation_matrix, method = "color", type = "upper", tl.col = "black",
 dev.off()
 
 
-#----------------------------Train model --------------------------- transfer in other file 
-# Load necessary libraries
-# Install necessary libraries if not already installed
-library(keras)
-library(tensorflow)
-#install_tensorflow(version = "2.15.0")
+table(data_cleaned_cross_corr$status)
 
-
-tf$constant("Hello TensorFlow!")
-
-
-# Ensure reproducibility
-set.seed(1)
-
-# Split data into training and testing sets
-train_indices <- sample(1:nrow(X), size = 0.8 * nrow(X))
-x_train <- as.matrix(X[train_indices, ])
-y_train <- as.numeric(as.factor(y[train_indices])) - 1  # Ensure zero-based index
-x_test <- as.matrix(X[-train_indices, ])
-y_test <- as.numeric(as.factor(y[-train_indices])) - 1
-
-# Manually one-hot encode the targets
-one_hot_encode <- function(y, num_classes) {
-  matrix <- matrix(0, nrow = length(y), ncol = num_classes)
-  for (i in seq_along(y)) {
-    matrix[i, y[i] + 1] <- 1
-  }
-  return(matrix)
-}
-# generate weights for unbalanced data
-class_counts <- table(y)
-total_samples <- sum(class_counts)
-num_classes <- length(class_counts)
-
-# Compute class weights inversely proportional to class frequencies
-dynamic_class_weights <- total_samples / (num_classes * class_counts)
-
-# Normalize weights for better balance (optional)
-dynamic_class_weights <- dynamic_class_weights / max(dynamic_class_weights)
-
-# Convert to a named list for Keras
-class_weights <- as.list(as.numeric(dynamic_class_weights))
-names(class_weights) <- as.character(names(class_counts))
-
-# Define number of classes
-num_classes <- length(unique(y))
-y_train <- one_hot_encode(y_train, num_classes)
-y_test <- one_hot_encode(y_test, num_classes)
-
-# Verify dimensions
-cat("x_train dimensions:", dim(x_train), "\n")
-cat("y_train dimensions:", dim(y_train), "\n")
-
-# Get the number of input features
-input_dim <- ncol(x_train)
-
-# Define the model
-model <- keras_model_sequential() %>% 
-  layer_dense(units = 64, activation = "relu", input_shape = c(input_dim)) %>% 
-  layer_dense(units = 64, activation = 'relu') %>%
-  layer_dense(units = num_classes, activation = 'softmax')
-
-# Compile the model
-model %>% compile(
-  optimizer = optimizer_adam(),
-  loss = 'categorical_crossentropy',
-  metrics = c('accuracy'),
-)
-
-# Train the model
-model %>% fit(
-  x_train,
-  y_train,
-  epochs = 100,
-  batch_size = 128,
-  validation_data = list(x_test, y_test),
-  class_weight = class_weights
-  
-)
-
-#--------------------cv-------------------------
-library(caret)  
-# Define parameters for cross-validation
-# Use `data_cleaned_cross_corr` to define X and y
-
-
-# One-hot encode the target variable
-y_onehot <- keras::to_categorical(y, num_classes = length(unique(y)))
-
-# Define parameters
-k_folds <- 5  # Number of cross-validation folds
-epochs <- 50
-batch_size <- 32
-learning_rate <- 0.001
-
-# Updated Cross-Validation Code
-
-# Ensure reproducibility
-set.seed(1)
-library(tensorflow)
-tf$random$set_seed(1)
-
-# Stratified sampling for folds to maintain class balance
-folds <- createFolds(y, k = k_folds, list = TRUE, returnTrain = FALSE)
-
-# Define number of classes and input dimensions
-num_classes <- length(unique(y))
-input_dim <- ncol(X)
-
-
-# Define the model-building function
-build_model <- function(input_shape, num_classes, learning_rate) {
-  model <- keras_model_sequential() %>%
-    layer_dense(units = 512, activation = "relu", input_shape = input_shape) %>%
-    layer_batch_normalization() %>%
-    layer_dropout(rate = 0.3) %>%
-    layer_dense(units = 256, activation = "relu", kernel_regularizer = regularizer_l2(0.01)) %>%
-    layer_batch_normalization() %>%
-    layer_dropout(rate = 0.3) %>%
-    layer_dense(units = 128, activation = "relu", kernel_regularizer = regularizer_l2(0.01)) %>%
-    layer_batch_normalization() %>%
-    layer_dropout(rate = 0.3) %>%
-    layer_dense(units = 64, activation = "relu", kernel_regularizer = regularizer_l2(0.01)) %>%
-    layer_batch_normalization() %>%
-    layer_dropout(rate = 0.3) %>%
-    layer_dense(units = 32, activation = "relu", kernel_regularizer = regularizer_l2(0.01)) %>%
-    layer_batch_normalization() %>%
-    layer_dropout(rate = 0.3) %>%
-    layer_dense(units = 16, activation = "relu", kernel_regularizer = regularizer_l2(0.01)) %>%
-    layer_batch_normalization() %>%
-    layer_dropout(rate = 0.3) %>%
-    layer_dense(units = num_classes, activation = "softmax")
-  
-  model %>% compile(
-    optimizer = optimizer_adam(learning_rate = learning_rate),
-    loss = "categorical_crossentropy",
-    metrics = c("accuracy")
-  )
-  return(model)
-}
-
-# Cross-validation loop
-cv_results <- data.frame(fold = 1:k_folds, train_accuracy = 0, val_accuracy = 0)
-
-for (i in 1:k_folds) {
-  cat("\nRunning fold", i, "/", k_folds, "\n")
-  
-  # Split data into training and validation sets
-  val_indices <- folds[[i]]
-  x_val <- as.matrix(X[val_indices, ])
-  y_val <- as.matrix(y_onehot[val_indices, ])
-  x_train <- as.matrix(X[-val_indices, ])
-  y_train <- as.matrix(y_onehot[-val_indices, ])
-  
-  # Debug: Check column consistency
-  if (!all(colnames(x_train) == colnames(x_val))) {
-    stop("Column mismatch between training and validation datasets.")
-  }
-  
-  # Debug: Print data dimensions
-  cat("x_train dimensions:", dim(x_train), "\n")
-  cat("x_val dimensions:", dim(x_val), "\n")
-  cat("y_train dimensions:", dim(y_train), "\n")
-  cat("y_val dimensions:", dim(y_val), "\n")
-  
-  # Build and train the model
-  model <- build_model(input_shape = input_dim, num_classes = num_classes, learning_rate = learning_rate)
-  
-  history <- tryCatch({
-    model %>% fit(
-      x_train, y_train,
-      epochs = epochs,
-      batch_size = batch_size,
-      validation_data = list(x_val, y_val),
-      verbose = 1
-    )
-  }, error = function(e) {
-    cat("Error during training on fold", i, ":", e$message, "\n")
-    stop(e)  # Stop execution for debugging
-  })
-  
-  # Evaluate on validation set
-  val_scores <- model %>% evaluate(x_val, y_val, verbose = 0)
-  
-  # Save results
-  cv_results$train_accuracy[i] <- max(history$metrics$accuracy)
-  cv_results$val_accuracy[i] <- val_scores["accuracy"]
-}
-
-# Summarize cross-validation results
-cat("\nCross-validation results:\n")
-print(cv_results)
-cat("Average validation accuracy:", mean(cv_results$val_accuracy), "\n")
-
-# ----------------------- Train final model on the entire dataset
-cat("Training final model on the full dataset\n")
-
-y_onehot <- keras::to_categorical(y, num_classes = length(unique(y)))
-epochs <- 1000
-batch_size <- 128
-learning_rate <- 0.001
-
-
-
-final_model <- build_model(input_shape = ncol(X), num_classes = ncol(y_onehot), learning_rate = learning_rate)
-
-
-# Use early stopping for final training
-early_stopping <- callback_early_stopping(monitor = "val_loss", patience = 50)
-
-# Split data into training and validation sets
-train_indices <- sample(1:nrow(X), size = 0.8 * nrow(X))
-
-x_val <- as.matrix(X[-train_indices, ])
-y_val <- as.matrix(y_onehot[-train_indices, ])
-x_train <- as.matrix(X[train_indices, ])
-y_train <- as.matrix(y_onehot[train_indices, ])
-
-# Debug: Check column consistency
-if (!all(colnames(x_train) == colnames(x_val))) {
-  stop("Column mismatch between training and validation datasets.")
-}
-
-# Debug: Print data dimensions
-cat("x_train dimensions:", dim(x_train), "\n")
-cat("x_val dimensions:", dim(x_val), "\n")
-cat("y_train dimensions:", dim(y_train), "\n")
-cat("y_val dimensions:", dim(y_val), "\n")
-
-class_counts <- table(y)
-total_samples <- sum(class_counts)
-num_classes <- length(class_counts)
-
-# Compute class weights inversely proportional to class frequencies
-dynamic_class_weights <- total_samples / (num_classes * class_counts)
-
-# Normalize weights for better balance (optional)
-dynamic_class_weights <- dynamic_class_weights / max(dynamic_class_weights)
-
-# Convert to a named list for Keras
-class_weights <- as.list(as.numeric(dynamic_class_weights))
-
-lr_schedule <- callback_learning_rate_scheduler(
-  schedule = function(epoch, lr) {
-    if (epoch %% 100 == 0 && epoch != 0) {
-      return(lr * 0.5)
-    }
-    return(lr)
-  }
-)
-
-history <- tryCatch({
-  final_model %>% fit(
-    x_train, y_train,
-    epochs = epochs,
-    batch_size = batch_size,
-    validation_data = list(x_val, y_val),
-    callbacks = list(early_stopping, lr_schedule),
-    verbose = 1,
-    class_weight = class_weights
-  )
-}, error = function(e) {
-  stop(e)  # Stop execution for debugging
-})
-
-# Save the final model
-final_model %>% save_model_hdf5("final_model.h5")
-
-# Evaluate on test data if provided
-cat("Final model trained successfully. Save and ready for deployment!\n")
+# Save the cleaned data to a CSV file
+write.csv(data_cleaned_cross_corr, "cleaned_data.csv", row.names = FALSE)
