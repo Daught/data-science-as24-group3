@@ -518,8 +518,8 @@ perform_data_preprocessing <- function(dataset_file_path, analysis_type) {
 
 
       # 67. open_rv_24m: Number of revolving trades opened in past 24 months.
-      #LC_Cleaned <- subset(LC_Cleaned, select = -open_rv_24m)
-      LC_Cleaned$open_rv_24m[is.na(LC_Cleaned$open_rv_24m)] <- 0
+      LC_Cleaned <- subset(LC_Cleaned, select = -open_rv_24m)
+      #LC_Cleaned$open_rv_24m[is.na(LC_Cleaned$open_rv_24m)] <- 0
 
 
       # 68. max_bal_bc: Maximum current balance owed on all revolving accounts.
@@ -542,8 +542,8 @@ perform_data_preprocessing <- function(dataset_file_path, analysis_type) {
       LC_Cleaned$total_cu_tl[is.na(LC_Cleaned$total_cu_tl)] <- 0
 
       # 72. inq_last_12m: Number of credit inquiries in past 12 months.
-      #LC_Cleaned <- subset(LC_Cleaned, select = -inq_last_12m)
-      LC_Cleaned$inq_last_12m[is.na(LC_Cleaned$inq_last_12m)] <- 0
+      LC_Cleaned <- subset(LC_Cleaned, select = -inq_last_12m)
+      #LC_Cleaned$inq_last_12m[is.na(LC_Cleaned$inq_last_12m)] <- 0
 
 
       # 51. application_type: Indicates whether the loan is an individual application or a joint application with two co-borrowers
