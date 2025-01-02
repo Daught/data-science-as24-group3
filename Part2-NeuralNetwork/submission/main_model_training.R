@@ -1,6 +1,27 @@
+##########################################################
+# Data Science - AS24
+# DS-Assignment: Part2
+# Part 1: Pre-trained Model Evaluation
+# Magdalena Hardegger magdalena.hardegger@students.fhnw.ch
+# Firat Turan firat.turan@students.fhnw.ch
+# Sascha Frossard sascha.frossard@students.fhnw.ch
+# Sebastian Fernandez sebastian.fernandez@students.fhnw.ch
+##########################################################
+# Assignment for DataScience Course at Olten, Switzerland
+##########################################################
+#
+# This file contains the code for training and evaluating the classification models.
+# It uses the generated file from the "main_pre_processing.R" step.
+# The final model is saved as "final_model.h5" that is then loaded by the
+# "reality_check.R" script.
+#
+##########################################################
+
+
 #----------------------------Train model --------------------------- 
 # Load necessary libraries
 # Install necessary libraries if not already installed
+# install_tensorflow(version = "2.15.0")
 library(keras)
 library(tensorflow)
 library(caret)
@@ -8,11 +29,6 @@ library(scales)
 library(corrplot)
 library(tidyverse)
 library(fastDummies)
-
-# install_tensorflow(version = "2.15.0")
-
-
-#tf$constant("Hello TensorFlow!")
 
 
 # Ensure reproducibility
@@ -81,6 +97,8 @@ test <- rbind(test_0, test_1, test_2, test_3, test_4, test_5, test_6, test_7)
 
 table(train$status)
 
+
+# Failed over- and undersampling approach
 # library(scutr)
 # ov_0 = undersample_kmeans(train, 0, "status", 5000)
 # ov_1 = oversample_smote(train, 1, "status", 5000)
@@ -329,13 +347,12 @@ best_params <- results[which.min(results$val_loss), ]
 print("Best Hyperparameters:")
 print(best_params)
 
-#----------------------- learn best model and save -------------------
+#----------------------- learn final model on whole training set and save -------------------
 # print(best_params)
 #dropout_rate learning_rate batch_size regularization_value val_loss val_accuracy
 # 0.2         5e-04        128                0.001         0.605094    0.8486267
 
-
-class_counts <- table(y)
+class_counts <- table(data_cleaned_cross_corr$status)
 total_samples <- sum(class_counts)
 num_classes <- length(class_counts)
 
@@ -348,6 +365,13 @@ dynamic_class_weights <- dynamic_class_weights / max(dynamic_class_weights)
 # Convert to a named list for Keras
 class_weights <- as.list(as.numeric(dynamic_class_weights))
 
+
+x <- as.matrix(subset(data_cleaned_cross_corr, select = -status))
+num_classes <- length(unique(data_cleaned_cross_corr$status))
+data_cleaned_y <- as.integer(factor(data_cleaned_cross_corr$status)) - 1  # Ensure status starts from 0
+y <- keras::to_categorical(data_cleaned_y, num_classes = num_classes)
+
+
 # Learning params
 epochs <- 1000
 batch_size <- 128
@@ -359,7 +383,7 @@ dropout_rate <- 0.2
 
 
 model <- keras_model_sequential() %>%
-  layer_dense(units = 512, activation = "relu", input_shape = ncol(x_train)) %>%
+  layer_dense(units = 512, activation = "relu", input_shape = ncol(x)) %>%
   layer_batch_normalization() %>%
   layer_dropout(rate = dropout_rate) %>%
   layer_dense(units = 256, activation = "relu", kernel_regularizer = regularizer_l2(0.001)) %>%
@@ -387,7 +411,7 @@ model %>% compile(
 )
 
 # Use early stopping
-early_stopping <- callback_early_stopping(monitor = "val_loss", patience = 100)
+early_stopping <- callback_early_stopping(monitor = "loss", patience = 100)
 
 lr_schedule <- callback_learning_rate_scheduler(
   schedule = function(epoch, lr) {
@@ -400,10 +424,9 @@ lr_schedule <- callback_learning_rate_scheduler(
 
 history <- tryCatch({
   model %>% fit(
-    x_train, y_train,
+    x, y,
     epochs = epochs,
     batch_size = batch_size,
-    validation_data = list(x_val, y_val),
     callbacks = list(early_stopping, lr_schedule),
     verbose = 1,
     class_weight = class_weights
@@ -413,7 +436,5 @@ history <- tryCatch({
 })
 
 # Save the trained model after fitting
-save_model_hdf5(model, "best_model.h5")
-cat("Model saved successfully at 'best_model.h5'!\n")
-# Training result
-#370/370 [==============================] - 4s 10ms/step - loss: 0.1680 - accuracy: 0.9553 - val_loss: 0.3751 - val_accuracy: 0.9203 - lr: 1.7798e-04
+save_model_hdf5(model, "final_model.h5")
+cat("Model saved successfully at 'final_model.h5'!\n")

@@ -1,3 +1,24 @@
+##########################################################
+# Data Science - AS24
+# DS-Assignment: Part2
+# Part 1: Pre-trained Model Evaluation
+# Magdalena Hardegger magdalena.hardegger@students.fhnw.ch
+# Firat Turan firat.turan@students.fhnw.ch
+# Sascha Frossard sascha.frossard@students.fhnw.ch
+# Sebastian Fernandez sebastian.fernandez@students.fhnw.ch
+##########################################################
+# Assignment for DataScience Course at Olten, Switzerland
+##########################################################
+#
+# This file takes the raw dataset and applies pre-processing to it.
+# It creates the file "cleaned_data.csv" which contains the pre-processed 
+# data including normalization so the file can be used directly for model training.
+#
+##########################################################
+
+
+
+
 # Install the 'scales' package if not already installed
 #install.packages("scales")
 # Load the library

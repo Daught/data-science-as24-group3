@@ -9,6 +9,14 @@
 ##########################################################
 # Assignment for DataScience Course at Olten, Switzerland
 ##########################################################
+#
+# This file is used to execute the final model on the specified dataset and
+# print out the final accuracy.
+# To adapt the file input change the variable test_data_file_path
+# in the section "Step 1: Environment".
+#
+##########################################################
+
 #install.packages(c("scales", "caret", "pROC", "ggplot2", "dplyr", "keras", "tidyr","fastDummies"))
 library(scales)
 library(caret)
@@ -23,7 +31,7 @@ library(fastDummies)
 rm(list = ls())
 
 # Define file paths and parameters
-model_file_path       <- 'best_model.h5'         # Path to the pre-trained model
+model_file_path       <- 'final_model.h5'         # Path to the pre-trained model
 test_data_file_path   <- './ressources/Dataset-part-2.csv' # Path to the test data
 static_seed_value     <- 1                        # Set seed for reproducibility
 
@@ -37,7 +45,7 @@ if (!exists("test_data_file_path") || is.null(test_data_file_path) || test_data_
 
 
 ##############   Step 2: Data Preprocessing   ##########################
-# declaring cleaning funciton we wrote
+# declaring cleaning function we wrote
 clean_column <- function(data, 
                          column_name, 
                          k = 5, 
@@ -132,7 +140,6 @@ data$status <- case_when(data$status == "C" ~ 7,
                          data$status == "3" ~ 3,
                          data$status == "4" ~ 4,
                          data$status == "5" ~ 5)
-#data_cleaned_cross_corr <- data %>% select(-"CNT_CHILDREN")
 
 
 
@@ -181,3 +188,6 @@ print(auc_values)
 # Average AUC across all classes
 avg_auc <- mean(auc_values)
 cat("Average AUC: ", avg_auc, "\n")
+
+# Print accuracy
+cat("Accuracy: ", conf_matrix$overall['Accuracy'], "\n")
